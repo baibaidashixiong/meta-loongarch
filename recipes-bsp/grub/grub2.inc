@@ -20,7 +20,7 @@ SRC_URI = "git://github.com/loongarch64/grub.git;branch=dev/patchwork/efi;protoc
            file://determinism.patch \
            file://0001-RISC-V-Restore-the-typcast-to-long.patch \
 "
-SRCREV = "1554da7b30e04e36b18640edb2fd6c89c569429b"
+SRCREV = "bd1041d2174f9586d001d79a9f5be7c8eea2fb15"
 S = "${WORKDIR}/git"
 
 # Applies only to RHEL
