@@ -1,0 +1,26 @@
+From f815dbec4f74a8ef51cab0d0f0cfafba36e70749 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Wed, 19 Apr 2023 08:48:10 +0000
+Subject: [PATCH] support boringssl for loongarch
+
+---
+ third_party/boringssl/src/include/openssl/base.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/third_party/boringssl/src/include/openssl/base.h b/third_party/boringssl/src/include/openssl/base.h
+index a2fb76b..2a26827 100644
+--- a/third_party/boringssl/src/include/openssl/base.h
++++ b/third_party/boringssl/src/include/openssl/base.h
+@@ -110,6 +110,9 @@ extern "C" {
+ #define OPENSSL_RISCV64
+ #elif defined(__riscv) && __SIZEOF_POINTER__ == 4
+ #define OPENSSL_32_BIT
++#elif defined(__loongarch64)
++#define OPENSSL_64_BIT
++#define OPENSSL_LOONG64
+ #elif defined(__pnacl__)
+ #define OPENSSL_32_BIT
+ #define OPENSSL_PNACL
+-- 
+2.30.2
+

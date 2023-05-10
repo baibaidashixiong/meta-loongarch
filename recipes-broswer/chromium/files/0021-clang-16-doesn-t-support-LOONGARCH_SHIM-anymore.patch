@@ -1,0 +1,25 @@
+From a25d5ba44f37d629a48afd43ee89ce55d58eff92 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Fri, 21 Apr 2023 09:34:03 +0000
+Subject: [PATCH] clang 16 doesn't support LOONGARCH_SHIM anymore
+
+---
+ third_party/dawn/src/dawn/common/Platform.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/third_party/dawn/src/dawn/common/Platform.h b/third_party/dawn/src/dawn/common/Platform.h
+index e49fc4f..775301d 100644
+--- a/third_party/dawn/src/dawn/common/Platform.h
++++ b/third_party/dawn/src/dawn/common/Platform.h
+@@ -113,7 +113,7 @@
+ 
+ #elif defined(__loongarch__)
+ #define DAWN_PLATFORM_IS_LOONGARCH 1
+-#if _LOONGARCH_SIM == _ABILP32
++#if _LOONGARCH_SIM 
+ #define DAWN_PLATFORM_IS_LOONGARCH32 1
+ #else
+ #define DAWN_PLATFORM_IS_LOONGARCH64 1
+-- 
+2.30.2
+

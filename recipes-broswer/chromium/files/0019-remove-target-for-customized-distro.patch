@@ -1,0 +1,31 @@
+From 31220722cece9fea08dfda2c63338478e8aecbe4 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Fri, 21 Apr 2023 06:50:36 +0000
+Subject: [PATCH] remove target for customized distro
+
+---
+ build/config/compiler/BUILD.gn | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
+index 196a9c3..cd96da6 100644
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -1239,10 +1239,10 @@ config("compiler_cpu_abi") {
+       }
+       cflags += [ "-mabi=lp64d" ]
+     } else if (current_cpu == "loong64") {
+-      if (is_clang) {
+-        cflags += [ "--target=loongarch64-linux-gnu" ]
+-        ldflags += [ "--target=loongarch64-linux-gnu" ]
+-      }
++     # if (is_clang) {
++     #   cflags += [ "--target=loongarch64-linux-gnu" ]
++     #   ldflags += [ "--target=loongarch64-linux-gnu" ]
++     # }
+       cflags += [
+         "-mabi=lp64d",
+         "-mcmodel=medium",
+-- 
+2.30.2
+

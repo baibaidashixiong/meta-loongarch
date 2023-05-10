@@ -1,0 +1,24 @@
+From cb0b38824e24dc27835d433311b138b7f827e2cb Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Tue, 25 Apr 2023 13:04:51 +0000
+Subject: [PATCH] add arch define for loongarch to support crashpad
+
+---
+ build/build_config.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build/build_config.h b/build/build_config.h
+index 6db5d9b..a24a96b 100644
+--- a/build/build_config.h
++++ b/build/build_config.h
+@@ -343,6 +343,7 @@
+ #elif defined(__loongarch64)
+ #define ARCH_CPU_LOONG_FAMILY 1
+ #define ARCH_CPU_LOONG64 1
++#define ARCH_CPU_LOONGARCH64 1
+ #define ARCH_CPU_64_BITS 1
+ #define ARCH_CPU_LITTLE_ENDIAN 1
+ #elif defined(__riscv) && (__riscv_xlen == 64)
+-- 
+2.30.2
+

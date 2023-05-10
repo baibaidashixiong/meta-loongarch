@@ -1,0 +1,25 @@
+From 5085df7b212438626748def045fcbb16205e773f Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Tue, 25 Apr 2023 12:36:54 +0000
+Subject: [PATCH] change reloc_type to pc-relative
+
+---
+ sandbox/linux/seccomp-bpf/syscall.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/sandbox/linux/seccomp-bpf/syscall.cc b/sandbox/linux/seccomp-bpf/syscall.cc
+index 3e570db..d92d0f1 100644
+--- a/sandbox/linux/seccomp-bpf/syscall.cc
++++ b/sandbox/linux/seccomp-bpf/syscall.cc
+@@ -314,7 +314,7 @@ asm(// We need to be able to tell the kernel exactly where we made a
+     ".type SyscallAsm, %function\n"
+     "SyscallAsm:\n"
+     "bge $a0, $zero, 1f\n"
+-    "la $a0, 2f\n"
++    "la.pcrel $a0, 2f\n"
+     "b 2f\n"
+     "1:ld.d $a5, $a6, 40\n"
+     "ld.d $a4, $a6, 32\n"
+-- 
+2.30.2
+

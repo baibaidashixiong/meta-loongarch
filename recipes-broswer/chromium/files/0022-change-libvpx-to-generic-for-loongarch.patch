@@ -1,0 +1,26 @@
+From 9bd8e8a7423d82e4c9afce883bc2ba8cad8b8d68 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Tue, 25 Apr 2023 11:37:13 +0000
+Subject: [PATCH] change libvpx to generic for loongarch, for mlsx is not
+ supported by clang now.
+
+---
+ third_party/libvpx/BUILD.gn | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/third_party/libvpx/BUILD.gn b/third_party/libvpx/BUILD.gn
+index 3ff3479..6964298 100644
+--- a/third_party/libvpx/BUILD.gn
++++ b/third_party/libvpx/BUILD.gn
+@@ -38,7 +38,7 @@ if (current_cpu == "x86") {
+ } else if (current_cpu == "riscv64") {
+   cpu_arch_full = "generic"
+ } else if (current_cpu == "loong64") {
+-  cpu_arch_full = "loongarch"
++  cpu_arch_full = "generic"
+ } else {
+   cpu_arch_full = current_cpu
+ }
+-- 
+2.30.2
+

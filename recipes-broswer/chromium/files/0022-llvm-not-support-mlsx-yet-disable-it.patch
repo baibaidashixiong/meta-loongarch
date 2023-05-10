@@ -1,0 +1,27 @@
+From 639afcad560ea24631c1f43f11b051e088dfa646 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Mon, 24 Apr 2023 01:21:10 +0000
+Subject: [PATCH] llvm not support mlsx yet, disable it
+
+---
+ third_party/libvpx/BUILD.gn | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/third_party/libvpx/BUILD.gn b/third_party/libvpx/BUILD.gn
+index c5aad48..32c0319 100644
+--- a/third_party/libvpx/BUILD.gn
++++ b/third_party/libvpx/BUILD.gn
+@@ -254,8 +254,8 @@ if (current_cpu == "loong64") {
+     configs -= [ "//build/config/compiler:chromium_code" ]
+     configs += [ "//build/config/compiler:no_chromium_code" ]
+     configs += [ ":libvpx_config" ]
+-    cflags = [ "-mlsx" ]
+-    sources = libvpx_srcs_loongarch_lsx
++   # cflags = [ "-mlsx" ]
++   # sources = libvpx_srcs_loongarch_lsx
+   }
+ }
+ 
+-- 
+2.30.2
+

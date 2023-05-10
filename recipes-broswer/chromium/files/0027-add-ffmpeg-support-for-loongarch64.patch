@@ -1,0 +1,122 @@
+From 45458c6748fe486ecd653c39e39abe96e62ffbe5 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Fri, 5 May 2023 07:39:31 +0000
+Subject: [PATCH] add ffmpeg support for loongarch64
+
+---
+ .../ffmpeg/chromium/scripts/build_ffmpeg.py   | 33 ++++++++++++++-----
+ .../ffmpeg/chromium/scripts/copy_config.sh    |  2 +-
+ .../ffmpeg/chromium/scripts/generate_gn.py    |  2 +-
+ 3 files changed, 26 insertions(+), 11 deletions(-)
+
+diff --git a/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py b/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
+index 5ff3a1c..a2960a5 100755
+--- a/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
++++ b/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
+@@ -40,7 +40,7 @@ BRANDINGS = [
+ ARCH_MAP = {
+     'android': ['ia32', 'x64', 'arm-neon', 'arm64'],
+     'linux': [
+-        'ia32', 'x64', 'noasm-x64', 'arm', 'arm-neon', 'arm64'
++        'ia32', 'x64', 'noasm-x64', 'arm', 'arm-neon', 'arm64', 'loong64'
+     ],
+     'mac': ['x64', 'arm64'],
+     'win': ['ia32', 'x64', 'arm64'],
+@@ -63,12 +63,13 @@ Platform specific build notes:
+   linux ia32/x64:
+     Script can run on a normal Ubuntu box.
+ 
+-  linux arm/arm-neon/arm64/mipsel/mips64el:
++  linux arm/arm-neon/arm64/mipsel/mips64el/loong64:
+     Script can run on a normal Ubuntu with ARM/ARM64 or MIPS32/MIPS64 ready Chromium checkout:
+       build/linux/sysroot_scripts/install-sysroot.py --arch=arm
+       build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
+       build/linux/sysroot_scripts/install-sysroot.py --arch=mips
+       build/linux/sysroot_scripts/install-sysroot.py --arch=mips64el
++      build/linux/sysroot_scripts/install-sysroot.py --arch=loong64
+ 
+   mac:
+     Script must be run on Linux or macOS.  Additionally, ensure the Chromium
+@@ -140,6 +141,8 @@ def DetermineHostOsAndArch():
+     host_arch = 'mipsel'
+   elif platform.machine() == 'mips64':
+     host_arch = 'mips64el'
++  elif platform.machine() == 'loongarch64':
++    host_arch = 'loong64'
+   elif platform.machine().startswith('arm'):
+     host_arch = 'arm'
+   else:
+@@ -911,6 +914,15 @@ def ConfigureAndBuild(target_arch, target_os, host_os, host_arch, parallel_jobs,
+             '--extra-cflags=--target=mips64el-linux-gnuabi64',
+             '--extra-ldflags=--target=mips64el-linux-gnuabi64',
+         ])
++    elif target_arch == 'loong64':
++        configure_flags['Common'].extend([
++        ])
++        if target_os == 'linux':
++            configure_flags['Common'].extend([
++                '--enable-cross-compile',
++                '--arch=loongarch64',
++                '--target-os=linux',
++            ])
+     else:
+       print(
+           'Error: Unknown target arch %r for target OS %r!' % (target_arch,
+@@ -925,18 +937,21 @@ def ConfigureAndBuild(target_arch, target_os, host_os, host_arch, parallel_jobs,
+     ])
+ 
+   if 'win' not in target_os and 'android' not in target_os:
+-    configure_flags['Common'].extend([
+-        '--enable-pic',
+-        '--cc=clang',
+-        '--cxx=clang++',
+-        '--ld=clang',
+-    ])
++    if target_arch != 'loong64':
++        configure_flags['Common'].extend([
++            '--enable-pic',
++            '--cc=clang',
++            '--cxx=clang++',
++            '--ld=clang',
++        ])
++    else:
++        configure_flags['Common'].extend(['--enable-pic'])
+ 
+     # Clang Linux will use the first 'ld' it finds on the path, which will
+     # typically be the system one, so explicitly configure use of Clang's
+     # ld.lld, to ensure that things like cross-compilation and LTO work.
+     # This does not work for ia32 and is always used on mac.
+-    if target_arch != 'ia32' and target_os != 'mac':
++    if target_arch != 'ia32' and target_os != 'mac' and target_arch != 'loong64':
+       configure_flags['Common'].append('--extra-ldflags=-fuse-ld=lld')
+ 
+   # Should be run on Mac, unless we're cross-compiling on Linux.
+diff --git a/third_party/ffmpeg/chromium/scripts/copy_config.sh b/third_party/ffmpeg/chromium/scripts/copy_config.sh
+index 4db59d2..246b10f 100755
+--- a/third_party/ffmpeg/chromium/scripts/copy_config.sh
++++ b/third_party/ffmpeg/chromium/scripts/copy_config.sh
+@@ -10,7 +10,7 @@ for os in android linux linux-noasm mac win; do
+     # Copy config files for various architectures:
+     #   - ia32/x64 have config.asm, config.h
+     #   - arm/arm-neon have config.h
+-    for arch in arm arm-neon arm64 ia32 x64 mipsel mips64el; do
++    for arch in arm arm-neon arm64 ia32 x64 mipsel mips64el loong64; do
+       # Don't waste time on non-existent configs, if no config.h then skip.
+       [ ! -e "build.$arch.$os/$target/config.h" ] && continue
+       for f in config.h config_components.h config.asm libavutil/avconfig.h libavutil/ffversion.h libavcodec/bsf_list.c libavcodec/codec_list.c libavcodec/parser_list.c libavformat/demuxer_list.c libavformat/muxer_list.c libavformat/protocol_list.c; do
+diff --git a/third_party/ffmpeg/chromium/scripts/generate_gn.py b/third_party/ffmpeg/chromium/scripts/generate_gn.py
+index a386794..b7edcfb 100755
+--- a/third_party/ffmpeg/chromium/scripts/generate_gn.py
++++ b/third_party/ffmpeg/chromium/scripts/generate_gn.py
+@@ -78,7 +78,7 @@ _Attrs = ('ARCHITECTURE', 'TARGET', 'PLATFORM')
+ Attr = collections.namedtuple('Attr', _Attrs)(*_Attrs)
+ SUPPORT_MATRIX = {
+     Attr.ARCHITECTURE:
+-        set(['ia32', 'x64', 'arm', 'arm64', 'arm-neon']),
++        set(['ia32', 'x64', 'arm', 'arm64', 'arm-neon', 'loong64']),
+     Attr.TARGET:
+         set(['Chromium', 'Chrome', 'ChromeOS']),
+     Attr.PLATFORM:
+-- 
+2.30.2
+

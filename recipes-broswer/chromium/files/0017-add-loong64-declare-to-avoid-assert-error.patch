@@ -1,0 +1,25 @@
+From b77bf4108c1e0661c7e7f6e3df2de45d040f3efe Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Wed, 19 Apr 2023 07:08:14 +0000
+Subject: [PATCH] add loong64 declare to avoid assert() error
+
+---
+ skia/BUILD.gn | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/skia/BUILD.gn b/skia/BUILD.gn
+index cd122a1..4bd9e9f 100644
+--- a/skia/BUILD.gn
++++ b/skia/BUILD.gn
+@@ -745,6 +745,8 @@ skia_source_set("skia_opts") {
+     # Conditional and empty body needed to avoid assert() below.
+   } else if (current_cpu == "riscv64") {
+     # Conditional and empty body needed to avoid assert() below.
++  } else if (current_cpu == "loong64") {
++    # Conditional and empty body needed to avoid assert() below.
+   } else {
+     assert(false, "Unknown cpu target")
+   }
+-- 
+2.30.2
+
