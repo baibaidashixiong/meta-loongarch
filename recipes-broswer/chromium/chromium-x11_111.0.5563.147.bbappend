@@ -87,3 +87,11 @@ do_configure:append() {
 do_configure:prepend() {
     ln -sf ${S}/../recipe-sysroot/lib/ ${S}/../recipe-sysroot/lib64
 }
+
+do_compile:append:loongarch64() {
+    ${STRIP} ./chrome
+    ${STRIP} ./chromedriver.unstripped
+}
+
+# Don't warn about already stripped files
+INSANE_SKIP:${PN} = "already-stripped"
