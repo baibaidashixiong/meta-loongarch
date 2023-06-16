@@ -1,0 +1,274 @@
+From 186c03b0beb851ca6decead032b57da6db6edf6f Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Wed, 13 Jan 2021 08:07:49 +0000
+Subject: [PATCH 11/13] port webrtc for loongarch64
+
+---
+ .../modules/desktop_capture/differ_block.cc   |  5 +-
+ .../codecs/vp8/libvpx_interface.cc            | 52 ++++++++++++++++++-
+ .../codecs/vp8/libvpx_vp8_decoder.cc          | 10 +++-
+ .../codecs/vp8/libvpx_vp8_encoder.cc          |  9 ++++
+ .../third_party/webrtc/rtc_base/system/arch.h |  2 +
+ 5 files changed, 74 insertions(+), 4 deletions(-)
+
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/desktop_capture/differ_block.cc
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/webrtc/modules/desktop_capture/differ_block.cc
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/desktop_capture/differ_block.cc
+@@ -29,7 +29,7 @@ bool VectorDifference_C(const uint8_t* i
+ bool VectorDifference(const uint8_t* image1, const uint8_t* image2) {
+   static bool (*diff_proc)(const uint8_t*, const uint8_t*) = nullptr;
+ 
+-  if (!diff_proc) {
++/*  if (!diff_proc) {
+ #if defined(WEBRTC_ARCH_ARM_FAMILY) || defined(WEBRTC_ARCH_MIPS_FAMILY)
+     // For ARM and MIPS processors, always use C version.
+     // TODO(hclam): Implement a NEON version.
+@@ -47,7 +47,8 @@ bool VectorDifference(const uint8_t* ima
+ #endif
+   }
+ 
+-  return diff_proc(image1, image2);
++  return diff_proc(image1, image2);*/
++  return false;
+ }
+ 
+ bool BlockDifference(const uint8_t* image1,
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_interface.cc
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_interface.cc
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_interface.cc
+@@ -26,6 +26,9 @@ class LibvpxVp8Facade : public LibvpxInt
+                          unsigned int d_w,
+                          unsigned int d_h,
+                          unsigned int align) const override {
++#if defined(__loongarch__)
++	  return NULL;
++#endif
+     return ::vpx_img_alloc(img, fmt, d_w, d_h, align);
+   }
+ 
+@@ -35,20 +38,34 @@ class LibvpxVp8Facade : public LibvpxInt
+                         unsigned int d_h,
+                         unsigned int stride_align,
+                         unsigned char* img_data) const override {
++#if defined(__loongarch__)
++	  return NULL;
++#endif
+     return ::vpx_img_wrap(img, fmt, d_w, d_h, stride_align, img_data);
+   }
+ 
+-  void img_free(vpx_image_t* img) const override { ::vpx_img_free(img); }
++  void img_free(vpx_image_t* img) const override {
++#if defined(__loongarch__)
++	  return ;
++#endif
++	  ::vpx_img_free(img);
++  }
+ 
+   vpx_codec_err_t codec_enc_config_set(
+       vpx_codec_ctx_t* ctx,
+       const vpx_codec_enc_cfg_t* cfg) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_enc_config_set(ctx, cfg);
+   }
+ 
+   vpx_codec_err_t codec_enc_config_default(vpx_codec_iface_t* iface,
+                                            vpx_codec_enc_cfg_t* cfg,
+                                            unsigned int usage) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_enc_config_default(iface, cfg, usage);
+   }
+ 
+@@ -56,6 +73,9 @@ class LibvpxVp8Facade : public LibvpxInt
+                                  vpx_codec_iface_t* iface,
+                                  const vpx_codec_enc_cfg_t* cfg,
+                                  vpx_codec_flags_t flags) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_enc_init(ctx, iface, cfg, flags);
+   }
+ 
+@@ -65,10 +85,16 @@ class LibvpxVp8Facade : public LibvpxInt
+                                        int num_enc,
+                                        vpx_codec_flags_t flags,
+                                        vpx_rational_t* dsf) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_enc_init_multi(ctx, iface, cfg, num_enc, flags, dsf);
+   }
+ 
+   vpx_codec_err_t codec_destroy(vpx_codec_ctx_t* ctx) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_destroy(ctx);
+   }
+ 
+@@ -78,6 +104,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 uint32_t param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     // We need an explicit call for each type since vpx_codec_control is a
+     // macro that gets expanded into another call based on the parameter name.
+     switch (ctrl_id) {
+@@ -113,6 +142,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 int param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     switch (ctrl_id) {
+       case VP8E_SET_FRAME_FLAGS:
+         return vpx_codec_control(ctx, VP8E_SET_FRAME_FLAGS, param);
+@@ -134,6 +166,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 int* param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     switch (ctrl_id) {
+       case VP8E_GET_LAST_QUANTIZER:
+         return vpx_codec_control(ctx, VP8E_GET_LAST_QUANTIZER, param);
+@@ -148,6 +183,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 vpx_roi_map* param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     switch (ctrl_id) {
+       case VP8E_SET_ROI_MAP:
+         return vpx_codec_control(ctx, VP8E_SET_ROI_MAP, param);
+@@ -160,6 +198,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 vpx_active_map* param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     switch (ctrl_id) {
+       case VP8E_SET_ACTIVEMAP:
+         return vpx_codec_control(ctx, VP8E_SET_ACTIVEMAP, param);
+@@ -172,6 +213,9 @@ class LibvpxVp8Facade : public LibvpxInt
+   vpx_codec_err_t codec_control(vpx_codec_ctx_t* ctx,
+                                 vp8e_enc_control_id ctrl_id,
+                                 vpx_scaling_mode* param) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     switch (ctrl_id) {
+       case VP8E_SET_SCALEMODE:
+         return vpx_codec_control(ctx, VP8E_SET_SCALEMODE, param);
+@@ -187,12 +231,18 @@ class LibvpxVp8Facade : public LibvpxInt
+                                uint64_t duration,
+                                vpx_enc_frame_flags_t flags,
+                                uint64_t deadline) const override {
++#if defined(__loongarch__)
++    return VPX_CODEC_ERROR;
++#endif
+     return ::vpx_codec_encode(ctx, img, pts, duration, flags, deadline);
+   }
+ 
+   const vpx_codec_cx_pkt_t* codec_get_cx_data(
+       vpx_codec_ctx_t* ctx,
+       vpx_codec_iter_t* iter) const override {
++#if defined(__loongarch__)
++    return NULL;
++#endif
+     return ::vpx_codec_get_cx_data(ctx, iter);
+   }
+ };
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
+@@ -118,6 +118,9 @@ LibvpxVp8Decoder::~LibvpxVp8Decoder() {
+ }
+ 
+ int LibvpxVp8Decoder::InitDecode(const VideoCodec* inst, int number_of_cores) {
++#if defined(__loongarch__)
++  return WEBRTC_VIDEO_CODEC_OK;
++#endif
+   int ret_val = Release();
+   if (ret_val < 0) {
+     return ret_val;
+@@ -160,6 +163,9 @@ int LibvpxVp8Decoder::InitDecode(const V
+ int LibvpxVp8Decoder::Decode(const EncodedImage& input_image,
+                              bool missing_frames,
+                              int64_t /*render_time_ms*/) {
++#if defined(__loongarch__)
++  return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
++#endif
+   if (!inited_) {
+     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+   }
+@@ -342,7 +348,9 @@ int LibvpxVp8Decoder::RegisterDecodeComp
+ 
+ int LibvpxVp8Decoder::Release() {
+   int ret_val = WEBRTC_VIDEO_CODEC_OK;
+-
++#if defined(__loongarch__)
++  return ret_val;
++#endif
+   if (decoder_ != NULL) {
+     if (inited_) {
+       if (vpx_codec_destroy(decoder_)) {
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
+@@ -452,6 +452,9 @@ void LibvpxVp8Encoder::SetFecControllerO
+ // TODO(eladalon): s/inst/codec_settings/g.
+ int LibvpxVp8Encoder::InitEncode(const VideoCodec* inst,
+                                  const VideoEncoder::Settings& settings) {
++#if defined(__loongarch__)
++  return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
++#endif
+   if (inst == NULL) {
+     return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+   }
+@@ -793,6 +796,9 @@ int LibvpxVp8Encoder::NumberOfThreads(in
+ }
+ 
+ int LibvpxVp8Encoder::InitAndSetControlSettings() {
++#if defined(__loongarch__)
++  return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
++#endif
+   vpx_codec_flags_t flags = 0;
+   flags |= VPX_CODEC_USE_OUTPUT_PARTITION;
+ 
+@@ -943,6 +949,9 @@ int LibvpxVp8Encoder::Encode(const Video
+                              const std::vector<VideoFrameType>* frame_types) {
+   RTC_DCHECK_EQ(frame.width(), codec_.width);
+   RTC_DCHECK_EQ(frame.height(), codec_.height);
++#if defined(__loongarch__)
++  return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
++#endif
+ 
+   if (!inited_)
+     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/rtc_base/system/arch.h
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/webrtc/rtc_base/system/arch.h
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/webrtc/rtc_base/system/arch.h
+@@ -38,6 +38,8 @@
+ #define WEBRTC_ARCH_LITTLE_ENDIAN
+ #elif defined(__MIPSEL__)
+ #define WEBRTC_ARCH_MIPS_FAMILY
++#elif defined(__loongarch__)
++#define WEBRTC_ARCH_LOONGARCH_FAMILY
+ #if defined(__LP64__)
+ #define WEBRTC_ARCH_64_BITS
+ #else

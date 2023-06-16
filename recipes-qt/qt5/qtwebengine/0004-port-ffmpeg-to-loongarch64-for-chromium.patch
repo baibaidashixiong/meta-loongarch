@@ -1,0 +1,956 @@
+From ef2574dd1db8ccdc2643f4d6c50fc35106851a6c Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Wed, 13 Jan 2021 07:51:00 +0000
+Subject: [PATCH 04/13] port ffmpeg to loongarch64 for chromium
+
+---
+ .../third_party/ffmpeg/CREDITS.chromium       | 516 ------------------
+ .../ffmpeg/chromium/scripts/build_ffmpeg.py   |  27 +-
+ .../ffmpeg/chromium/scripts/copy_config.sh    |   2 +-
+ .../ffmpeg/chromium/scripts/generate_gn.py    |   2 +-
+ .../third_party/ffmpeg/ffmpeg_generated.gni   | 182 ++----
+ 5 files changed, 64 insertions(+), 665 deletions(-)
+
+diff --git a/src/3rdparty/chromium/third_party/ffmpeg/CREDITS.chromium b/src/3rdparty/chromium/third_party/ffmpeg/CREDITS.chromium
+index 0043df2c5..8cbb66d9d 100644
+--- a/src/3rdparty/chromium/third_party/ffmpeg/CREDITS.chromium
++++ b/src/3rdparty/chromium/third_party/ffmpeg/CREDITS.chromium
+@@ -129,517 +129,6 @@ incompatible with the GPLv2 and v3. To the best of our knowledge, they are
+ compatible with the LGPL.
+ 
+ 
+-********************************************************************************
+-
+-libavcodec/arm/jrevdct_arm.S
+-
+-C-like prototype :
+-        void j_rev_dct_arm(DCTBLOCK data)
+-
+-   With DCTBLOCK being a pointer to an array of 64 'signed shorts'
+-
+-   Copyright (c) 2001 Lionel Ulmer (lionel.ulmer@free.fr / bbrox@bbrox.org)
+-
+-   Permission is hereby granted, free of charge, to any person obtaining a copy
+-   of this software and associated documentation files (the "Software"), to deal
+-   in the Software without restriction, including without limitation the rights
+-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+-   copies of the Software, and to permit persons to whom the Software is
+-   furnished to do so, subject to the following conditions:
+-
+-   The above copyright notice and this permission notice shall be included in
+-   all copies or substantial portions of the Software.
+-
+-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+-   COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-
+-********************************************************************************
+-
+-libavcodec/arm/vp8dsp_armv6.S
+-
+-VP8 ARMv6 optimisations
+-
+-Copyright (c) 2010 Google Inc.
+-Copyright (c) 2010 Rob Clark <rob@ti.com>
+-Copyright (c) 2011 Mans Rullgard <mans@mansr.com>
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-This code was partially ported from libvpx, which uses this license:
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions are
+-met:
+-
+-* Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-
+-* Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in
+-the documentation and/or other materials provided with the
+-distribution.
+-
+-* Neither the name of Google nor the names of its contributors may
+-be used to endorse or promote products derived from this software
+-without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-
+-********************************************************************************
+-
+-libavcodec/mips/acelp_filters_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Nedeljko Babic (nbabic@mips.com)
+-
+-various filters for ACELP-based codecs optimized for MIPS
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/acelp_vectors_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Nedeljko Babic (nbabic@mips.com)
+-
+-adaptive and fixed codebook vector operations for ACELP-based codecs
+-optimized for MIPS
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/amrwbdec_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Nedeljko Babic (nbabic@mips.com)
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/celp_filters_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Nedeljko Babic (nbabic@mips.com)
+-
+-various filters for CELP-based codecs optimized for MIPS
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/celp_math_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Nedeljko Babic (nbabic@mips.com)
+-
+-Math operations optimized for MIPS
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/fft_mips.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Stanislav Ocovaj (socovaj@mips.com)
+-Author:  Zoran Lukic (zoranl@mips.com)
+-
+-Optimized MDCT/IMDCT and FFT transforms
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/mips/mpegaudiodsp_mips_float.c
+-
+-Copyright (c) 2012
+-MIPS Technologies, Inc., California.
+-
+-Redistribution and use in source and binary forms, with or without
+-modification, are permitted provided that the following conditions
+-are met:
+-1. Redistributions of source code must retain the above copyright
+-notice, this list of conditions and the following disclaimer.
+-2. Redistributions in binary form must reproduce the above copyright
+-notice, this list of conditions and the following disclaimer in the
+-documentation and/or other materials provided with the distribution.
+-3. Neither the name of the MIPS Technologies, Inc., nor the names of its
+-contributors may be used to endorse or promote products derived from
+-this software without specific prior written permission.
+-
+-THIS SOFTWARE IS PROVIDED BY THE MIPS TECHNOLOGIES, INC. ``AS IS'' AND
+-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+-ARE DISCLAIMED.  IN NO EVENT SHALL THE MIPS TECHNOLOGIES, INC. BE LIABLE
+-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+-LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+-OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+-SUCH DAMAGE.
+-
+-Author:  Bojan Zivkovic (bojan@mips.com)
+-
+-MPEG Audio decoder optimized for MIPS floating-point architecture
+-
+-This file is part of FFmpeg.
+-
+-FFmpeg is free software; you can redistribute it and/or
+-modify it under the terms of the GNU Lesser General Public
+-License as published by the Free Software Foundation; either
+-version 2.1 of the License, or (at your option) any later version.
+-
+-FFmpeg is distributed in the hope that it will be useful,
+-but WITHOUT ANY WARRANTY; without even the implied warranty of
+-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-Lesser General Public License for more details.
+-
+-You should have received a copy of the GNU Lesser General Public
+-License along with FFmpeg; if not, write to the Free Software
+-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+-********************************************************************************
+-
+-libavcodec/x86/xvididct.asm
+-
+-XVID MPEG-4 VIDEO CODEC
+-
+- Conversion from gcc syntax to x264asm syntax with modifications
+- by Christophe Gisquet <christophe.gisquet@gmail.com>
+-
+- ===========     SSE2 inverse discrete cosine transform     ===========
+-
+- Copyright(C) 2003 Pascal Massimino <skal@planet-d.net>
+-
+- Conversion to gcc syntax with modifications
+- by Alexander Strange <astrange@ithinksw.com>
+-
+- Originally from dct/x86_asm/fdct_sse2_skal.asm in Xvid.
+-
+- Vertical pass is an implementation of the scheme:
+-  Loeffler C., Ligtenberg A., and Moschytz C.S.:
+-  Practical Fast 1D DCT Algorithm with Eleven Multiplications,
+-  Proc. ICASSP 1989, 988-991.
+-
+- Horizontal pass is a double 4x4 vector/matrix multiplication,
+- (see also Intel's Application Note 922:
+-  http://developer.intel.com/vtune/cbts/strmsimd/922down.htm
+-  Copyright (C) 1999 Intel Corporation)
+-
+- More details at http://skal.planet-d.net/coding/dct.html
+-
+- =======     MMX and XMM forward discrete cosine transform     =======
+-
+- Copyright(C) 2001 Peter Ross <pross@xvid.org>
+-
+- Originally provided by Intel at AP-922
+- http://developer.intel.com/vtune/cbts/strmsimd/922down.htm
+- (See more app notes at http://developer.intel.com/vtune/cbts/strmsimd/appnotes.htm)
+- but in a limited edition.
+- New macro implements a column part for precise iDCT
+- The routine precision now satisfies IEEE standard 1180-1990.
+-
+- Copyright(C) 2000-2001 Peter Gubanov <peter@elecard.net.ru>
+- Rounding trick Copyright(C) 2000 Michel Lespinasse <walken@zoy.org>
+-
+- http://www.elecard.com/peter/idct.html
+- http://www.linuxvideo.org/mpeg2dec/
+-
+- These examples contain code fragments for first stage iDCT 8x8
+- (for rows) and first stage DCT 8x8 (for columns)
+-
+- conversion to gcc syntax by Michael Niedermayer
+-
+- ======================================================================
+-
+- This file is part of FFmpeg.
+-
+- FFmpeg is free software; you can redistribute it and/or
+- modify it under the terms of the GNU Lesser General Public
+- License as published by the Free Software Foundation; either
+- version 2.1 of the License, or (at your option) any later version.
+-
+- FFmpeg is distributed in the hope that it will be useful,
+- but WITHOUT ANY WARRANTY; without even the implied warranty of
+- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- Lesser General Public License for more details.
+-
+- You should have received a copy of the GNU Lesser General Public License
+- along with FFmpeg; if not, write to the Free Software Foundation,
+- Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+-
+ ********************************************************************************
+ 
+ libavformat/oggparsetheora.c
+@@ -784,19 +273,14 @@ libavcodec/fft_fixed_32.c
+ libavcodec/fft_init_table.c
+ libavcodec/fft_table.h
+ libavcodec/mdct_fixed_32.c
+-libavcodec/mips/aacdec_mips.c
+ libavcodec/mips/aacdec_mips.h
+-libavcodec/mips/aacpsdsp_mips.c
+-libavcodec/mips/aacsbr_mips.c
+ libavcodec/mips/aacsbr_mips.h
+ libavcodec/mips/amrwbdec_mips.h
+ libavcodec/mips/compute_antialias_fixed.h
+ libavcodec/mips/compute_antialias_float.h
+ libavcodec/mips/lsp_mips.h
+-libavcodec/mips/sbrdsp_mips.c
+ libavutil/fixed_dsp.c
+ libavutil/fixed_dsp.h
+-libavutil/mips/float_dsp_mips.c
+ libavutil/mips/libm_mips.h
+ libavutil/softfloat_tables.h
+ 
+diff --git a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
+index 23d5c0f57..dfe821557 100755
+--- a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
++++ b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/build_ffmpeg.py
+@@ -36,7 +36,7 @@ ARCH_MAP = {
+     'android': ['ia32', 'x64', 'arm-neon', 'arm64'],
+     'linux': [
+         'ia32', 'x64', 'mipsel', 'mips64el', 'noasm-x64', 'arm', 'arm-neon',
+-        'arm64'
++        'arm64', 'la64'
+     ],
+     'mac': ['x64'],
+     'win': ['ia32', 'x64', 'arm64'],
+@@ -126,6 +126,8 @@ def DetermineHostOsAndArch():
+     host_arch = 'mipsel'
+   elif platform.machine() == 'mips64':
+     host_arch = 'mips64el'
++  elif platform.machine() == 'loongarch64':
++    host_arch = 'la64'
+   elif platform.machine().startswith('arm'):
+     host_arch = 'arm'
+   else:
+@@ -197,6 +199,10 @@ def SetupAndroidToolchain(target_arch):
+   elif target_arch == 'mipsel':
+     sysroot_arch = 'mips'
+     toolchain_bin_prefix = toolchain_dir_prefix = 'mipsel-linux-android'
++  elif target_arch == 'la64':
++    toolchain_level = api64_level
++    sysroot_arch = 'la64'
++    toolchain_bin_prefix = toolchain_dir_prefix = 'la64-linux-android'
+   elif target_arch == 'mips64el':
+     toolchain_level = api64_level
+     sysroot_arch = 'mips64'
+@@ -789,6 +795,21 @@ def ConfigureAndBuild(target_arch, target_os, host_os, host_arch, parallel_jobs,
+             '--extra-cflags=--target=mips64el-linux-gnuabi64',
+             '--extra-ldflags=--target=mips64el-linux-gnuabi64',
+         ])
++    elif target_arch == 'la64':
++      # These flags taken from android chrome build with target_cpu='mips64el'
++      configure_flags['Common'].extend([
++      ])
++      if target_os == 'android':
++        configure_flags['Common'].extend([
++            '--enable-mips64r6',
++            '--extra-cflags=-mcpu=mips64r6',
++            '--disable-mips64r2',
++            '--enable-msa',
++        ])
++      if target_os == 'linux':
++        configure_flags['Common'].extend([
++            '--target-os=linux',
++        ])
+     else:
+       print(
+           'Error: Unknown target arch %r for target OS %r!' % (target_arch,
+@@ -814,8 +835,8 @@ def ConfigureAndBuild(target_arch, target_os, host_os, host_arch, parallel_jobs,
+     # typically be the system one, so explicitly configure use of Clang's
+     # ld.lld, to ensure that things like cross-compilation and LTO work.
+     # This does not work for ia32 and is always used on mac.
+-    if target_arch != 'ia32' and target_os != 'mac':
+-      configure_flags['Common'].append('--extra-ldflags=-fuse-ld=lld')
++    #if target_arch != 'ia32' and target_os != 'mac':
++    #  configure_flags['Common'].append('--extra-ldflags=-fuse-ld=lld')
+ 
+   # Should be run on Mac, unless we're cross-compiling on Linux.
+   if target_os == 'mac':
+diff --git a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/copy_config.sh b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/copy_config.sh
+index 0e5159d6f..a982a3bd4 100755
+--- a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/copy_config.sh
++++ b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/copy_config.sh
+@@ -10,7 +10,7 @@ for os in android linux linux-noasm mac win; do
+     # Copy config files for various architectures:
+     #   - ia32/x64 have config.asm, config.h
+     #   - arm/arm-neon have config.h
+-    for arch in arm arm-neon arm64 ia32 x64 mipsel mips64el; do
++    for arch in arm arm-neon arm64 ia32 x64 mipsel mips64el la64; do
+       # Don't waste time on non-existent configs, if no config.h then skip.
+       [ ! -e "build.$arch.$os/$target/config.h" ] && continue
+       for f in config.h config.asm libavutil/avconfig.h libavutil/ffversion.h libavcodec/bsf_list.c libavcodec/codec_list.c libavcodec/parser_list.c libavformat/demuxer_list.c libavformat/muxer_list.c libavformat/protocol_list.c; do
+diff --git a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/generate_gn.py b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/generate_gn.py
+index d2b3d1052..5b4dd10e5 100755
+--- a/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/generate_gn.py
++++ b/src/3rdparty/chromium/third_party/ffmpeg/chromium/scripts/generate_gn.py
+@@ -77,7 +77,7 @@ GN_SOURCE_END = """]
+ Attr = enum('ARCHITECTURE', 'TARGET', 'PLATFORM')
+ SUPPORT_MATRIX = {
+     Attr.ARCHITECTURE:
+-        set(['ia32', 'x64', 'arm', 'arm64', 'arm-neon', 'mipsel', 'mips64el']),
++        set(['ia32', 'x64', 'arm', 'arm64', 'arm-neon', 'mipsel', 'mips64el', 'la64']),
+     Attr.TARGET:
+         set(['Chromium', 'Chrome', 'ChromeOS']),
+     Attr.PLATFORM:
+diff --git a/src/3rdparty/chromium/third_party/ffmpeg/ffmpeg_generated.gni b/src/3rdparty/chromium/third_party/ffmpeg/ffmpeg_generated.gni
+index fa2b74e09..fdecb888d 100644
+--- a/src/3rdparty/chromium/third_party/ffmpeg/ffmpeg_generated.gni
++++ b/src/3rdparty/chromium/third_party/ffmpeg/ffmpeg_generated.gni
+@@ -14,17 +14,14 @@ ffmpeg_asm_sources = []
+ 
+ use_linux_config = is_linux || is_fuchsia
+ 
+-if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && current_cpu == "arm64") || (is_android && current_cpu == "x64") || (is_android && current_cpu == "x86") || (is_mac) || (is_win) || (use_linux_config)) {
++if (use_linux_config && current_cpu == "la64") {
+   ffmpeg_c_sources += [
+     "libavcodec/ac3_parser.c",
+     "libavcodec/ac3tab.c",
+     "libavcodec/adts_parser.c",
+     "libavcodec/allcodecs.c",
+     "libavcodec/autorename_libavcodec_flacdec.c",
+-    "libavcodec/autorename_libavcodec_flacdsp.c",
+-    "libavcodec/autorename_libavcodec_mpegaudiodsp.c",
+     "libavcodec/autorename_libavcodec_utils.c",
+-    "libavcodec/autorename_libavcodec_vorbisdsp.c",
+     "libavcodec/avdct.c",
+     "libavcodec/avfft.c",
+     "libavcodec/avpacket.c",
+@@ -49,7 +46,10 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavcodec/flac.c",
+     "libavcodec/flac_parser.c",
+     "libavcodec/flacdata.c",
++    "libavcodec/flacdsp.c",
+     "libavcodec/golomb.c",
++    "libavcodec/h264pred.c",
++    "libavcodec/hpeldsp.c",
+     "libavcodec/imgconvert.c",
+     "libavcodec/jni.c",
+     "libavcodec/libopus.c",
+@@ -67,6 +67,7 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavcodec/mpegaudiodata.c",
+     "libavcodec/mpegaudiodec_fixed.c",
+     "libavcodec/mpegaudiodecheader.c",
++    "libavcodec/mpegaudiodsp.c",
+     "libavcodec/mpegaudiodsp_data.c",
+     "libavcodec/mpegaudiodsp_fixed.c",
+     "libavcodec/mpegaudiodsp_float.c",
+@@ -86,10 +87,19 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavcodec/qsv_api.c",
+     "libavcodec/raw.c",
+     "libavcodec/rdft.c",
++    "libavcodec/videodsp.c",
+     "libavcodec/vorbis.c",
+     "libavcodec/vorbis_data.c",
+     "libavcodec/vorbis_parser.c",
+     "libavcodec/vorbisdec.c",
++    "libavcodec/vorbisdsp.c",
++    "libavcodec/vp3.c",
++    "libavcodec/vp3_parser.c",
++    "libavcodec/vp3dsp.c",
++    "libavcodec/vp56rac.c",
++    "libavcodec/vp8.c",
++    "libavcodec/vp8_parser.c",
++    "libavcodec/vp8dsp.c",
+     "libavcodec/vp9_parser.c",
+     "libavcodec/xiph.c",
+     "libavformat/allformats.c",
+@@ -135,10 +145,6 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavformat/wavdec.c",
+     "libavutil/aes.c",
+     "libavutil/aes_ctr.c",
+-    "libavutil/autorename_libavutil_cpu.c",
+-    "libavutil/autorename_libavutil_fixed_dsp.c",
+-    "libavutil/autorename_libavutil_float_dsp.c",
+-    "libavutil/autorename_libavutil_imgutils.c",
+     "libavutil/avsscanf.c",
+     "libavutil/avstring.c",
+     "libavutil/base64.c",
+@@ -147,6 +153,7 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavutil/camellia.c",
+     "libavutil/channel_layout.c",
+     "libavutil/color_utils.c",
++    "libavutil/cpu.c",
+     "libavutil/crc.c",
+     "libavutil/dict.c",
+     "libavutil/display.c",
+@@ -156,9 +163,12 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+     "libavutil/eval.c",
+     "libavutil/fifo.c",
+     "libavutil/file_open.c",
++    "libavutil/fixed_dsp.c",
++    "libavutil/float_dsp.c",
+     "libavutil/frame.c",
+     "libavutil/hdr_dynamic_metadata.c",
+     "libavutil/hwcontext.c",
++    "libavutil/imgutils.c",
+     "libavutil/integer.c",
+     "libavutil/intmath.c",
+     "libavutil/lfg.c",
+@@ -193,22 +203,7 @@ if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && curre
+   ]
+ }
+ 
+-if ((is_mac) || (is_win) || (use_linux_config)) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/autorename_libavcodec_hpeldsp.c",
+-    "libavcodec/autorename_libavcodec_videodsp.c",
+-    "libavcodec/autorename_libavcodec_vp3dsp.c",
+-    "libavcodec/autorename_libavcodec_vp8dsp.c",
+-    "libavcodec/h264pred.c",
+-    "libavcodec/vp3.c",
+-    "libavcodec/vp3_parser.c",
+-    "libavcodec/vp56rac.c",
+-    "libavcodec/vp8.c",
+-    "libavcodec/vp8_parser.c",
+-  ]
+-}
+-
+-if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") || (is_android && current_cpu == "arm" && arm_use_neon && ffmpeg_branding == "Chrome") || (is_android && current_cpu == "arm64" && ffmpeg_branding == "Chrome") || (is_android && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (is_win && ffmpeg_branding == "Chrome") || (use_linux_config && ffmpeg_branding == "Chrome") || (use_linux_config && ffmpeg_branding == "ChromeOS")) {
++if ((use_linux_config && current_cpu == "la64" && ffmpeg_branding == "Chrome") || (use_linux_config && current_cpu == "la64" && ffmpeg_branding == "ChromeOS")) {
+   ffmpeg_c_sources += [
+     "libavcodec/aac_ac3_parser.c",
+     "libavcodec/aac_parser.c",
+@@ -218,21 +213,8 @@ if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") || (is_android && curr
+     "libavcodec/aactab.c",
+     "libavcodec/adts_header.c",
+     "libavcodec/autorename_libavcodec_aacdec.c",
+-    "libavcodec/autorename_libavcodec_mdct15.c",
+-    "libavcodec/autorename_libavcodec_sbrdsp.c",
+-    "libavcodec/cbrt_data.c",
+-    "libavcodec/kbdwin.c",
+-    "libavcodec/sinewin.c",
+-    "libavcodec/sinewin_fixed.c",
+-    "libavformat/aacdec.c",
+-    "libavformat/apetag.c",
+-    "libavformat/img2.c",
+-  ]
+-}
+-
+-if ((is_mac && ffmpeg_branding == "Chrome") || (is_win && ffmpeg_branding == "Chrome") || (use_linux_config && ffmpeg_branding == "Chrome") || (use_linux_config && ffmpeg_branding == "ChromeOS")) {
+-  ffmpeg_c_sources += [
+     "libavcodec/cabac.c",
++    "libavcodec/cbrt_data.c",
+     "libavcodec/h2645_parse.c",
+     "libavcodec/h264_cabac.c",
+     "libavcodec/h264_cavlc.c",
+@@ -252,122 +234,26 @@ if ((is_mac && ffmpeg_branding == "Chrome") || (is_win && ffmpeg_branding == "Ch
+     "libavcodec/h264dsp.c",
+     "libavcodec/h264idct.c",
+     "libavcodec/h264qpel.c",
++    "libavcodec/kbdwin.c",
++    "libavcodec/mdct15.c",
++    "libavcodec/sbrdsp.c",
++    "libavcodec/sinewin.c",
++    "libavcodec/sinewin_fixed.c",
+     "libavcodec/startcode.c",
++    "libavformat/aacdec.c",
++    "libavformat/apetag.c",
++    "libavformat/img2.c",
+   ]
+ }
+ 
+-if ((is_android && current_cpu == "x64") || (is_android && current_cpu == "x86") || (is_mac) || (is_win && current_cpu == "x64") || (is_win && current_cpu == "x86") || (use_linux_config && current_cpu == "x64") || (use_linux_config && current_cpu == "x86")) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/x86/autorename_libavcodec_x86_vorbisdsp_init.c",
+-    "libavcodec/x86/constants.c",
+-    "libavcodec/x86/dct_init.c",
+-    "libavcodec/x86/fft_init.c",
+-    "libavcodec/x86/flacdsp_init.c",
+-    "libavcodec/x86/mpegaudiodsp.c",
+-    "libavutil/x86/autorename_libavutil_x86_cpu.c",
+-    "libavutil/x86/autorename_libavutil_x86_float_dsp_init.c",
+-    "libavutil/x86/fixed_dsp_init.c",
+-    "libavutil/x86/imgutils_init.c",
+-    "libavutil/x86/lls_init.c",
+-  ]
+-}
+-
+-if ((is_android && current_cpu == "arm" && arm_use_neon) || (use_linux_config && current_cpu == "arm" && arm_use_neon) || (use_linux_config && current_cpu == "arm")) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/arm/fft_fixed_init_arm.c",
+-    "libavcodec/arm/fft_init_arm.c",
+-    "libavcodec/arm/flacdsp_init_arm.c",
+-    "libavcodec/arm/mpegaudiodsp_init_arm.c",
+-    "libavcodec/arm/rdft_init_arm.c",
+-    "libavcodec/arm/vorbisdsp_init_arm.c",
+-    "libavutil/arm/autorename_libavutil_arm_cpu.c",
+-    "libavutil/arm/float_dsp_init_arm.c",
+-    "libavutil/arm/float_dsp_init_vfp.c",
+-  ]
+-  ffmpeg_gas_sources += [
+-    "libavcodec/arm/fft_vfp.S",
+-    "libavcodec/arm/flacdsp_arm.S",
+-    "libavcodec/arm/mdct_vfp.S",
+-    "libavcodec/arm/mpegaudiodsp_fixed_armv6.S",
+-    "libavutil/arm/float_dsp_vfp.S",
+-  ]
+-}
+-
+-if ((is_android && current_cpu == "x64") || (is_mac) || (is_win && current_cpu == "x64") || (is_win && current_cpu == "x86") || (use_linux_config && current_cpu == "x64") || (use_linux_config && current_cpu == "x86")) {
+-  ffmpeg_asm_sources += [
+-    "libavcodec/x86/dct32.asm",
+-    "libavcodec/x86/fft.asm",
+-    "libavcodec/x86/flacdsp.asm",
+-    "libavcodec/x86/imdct36.asm",
+-    "libavcodec/x86/vorbisdsp.asm",
+-    "libavutil/x86/cpuid.asm",
+-    "libavutil/x86/fixed_dsp.asm",
+-    "libavutil/x86/float_dsp.asm",
+-    "libavutil/x86/imgutils.asm",
+-    "libavutil/x86/lls.asm",
+-  ]
+-}
+-
+-if ((is_mac) || (is_win && current_cpu == "x64") || (is_win && current_cpu == "x86") || (use_linux_config && current_cpu == "x64") || (use_linux_config && current_cpu == "x86")) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/x86/autorename_libavcodec_x86_videodsp_init.c",
+-    "libavcodec/x86/h264_intrapred_init.c",
+-    "libavcodec/x86/hpeldsp_init.c",
+-    "libavcodec/x86/hpeldsp_vp3_init.c",
+-    "libavcodec/x86/vp3dsp_init.c",
+-    "libavcodec/x86/vp8dsp_init.c",
+-  ]
+-  ffmpeg_asm_sources += [
+-    "libavcodec/x86/autorename_libavcodec_x86_videodsp.asm",
+-    "libavcodec/x86/fpel.asm",
+-    "libavcodec/x86/h264_intrapred.asm",
+-    "libavcodec/x86/h264_intrapred_10bit.asm",
+-    "libavcodec/x86/hpeldsp.asm",
+-    "libavcodec/x86/hpeldsp_vp3.asm",
+-    "libavcodec/x86/vp3dsp.asm",
+-    "libavcodec/x86/vp8dsp.asm",
+-    "libavcodec/x86/vp8dsp_loopfilter.asm",
+-  ]
+-}
+-
+-if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") || (is_android && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (is_win && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (use_linux_config && current_cpu == "x64" && ffmpeg_branding == "ChromeOS") || (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "ChromeOS")) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/x86/aacpsdsp_init.c",
+-    "libavcodec/x86/mdct15_init.c",
+-    "libavcodec/x86/sbrdsp_init.c",
+-  ]
+-}
+-
+-if ((is_android && current_cpu == "arm" && arm_use_neon) || (is_android && current_cpu == "arm64") || (is_android && current_cpu == "x64") || (is_android && current_cpu == "x86")) {
+-  ffmpeg_c_sources += [
+-    "compat/strtod.c",
+-  ]
+-}
+-
+-if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") || (is_win && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (use_linux_config && current_cpu == "x64" && ffmpeg_branding == "ChromeOS") || (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "Chrome") || (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "ChromeOS")) {
+-  ffmpeg_asm_sources += [
+-    "libavcodec/x86/aacpsdsp.asm",
+-    "libavcodec/x86/mdct15.asm",
+-    "libavcodec/x86/sbrdsp.asm",
+-  ]
+-}
+-
+-if (use_linux_config && ffmpeg_branding == "ChromeOS") {
++if (use_linux_config && current_cpu == "la64" && ffmpeg_branding == "ChromeOS") {
+   ffmpeg_c_sources += [
+     "libavcodec/acelp_filters.c",
+     "libavcodec/acelp_pitch_delay.c",
+     "libavcodec/acelp_vectors.c",
+     "libavcodec/amrnbdec.c",
+     "libavcodec/amrwbdec.c",
+-    "libavcodec/autorename_libavcodec_blockdsp.c",
+-    "libavcodec/autorename_libavcodec_idctdsp.c",
+-    "libavcodec/autorename_libavcodec_me_cmp.c",
+-    "libavcodec/autorename_libavcodec_mpegvideo.c",
+-    "libavcodec/autorename_libavcodec_mpegvideodsp.c",
+-    "libavcodec/autorename_libavcodec_pixblockdsp.c",
+-    "libavcodec/autorename_libavcodec_qpeldsp.c",
+-    "libavcodec/autorename_libavcodec_simple_idct.c",
+-    "libavcodec/autorename_libavcodec_xvididct.c",
++    "libavcodec/blockdsp.c",
+     "libavcodec/celp_filters.c",
+     "libavcodec/celp_math.c",
+     "libavcodec/error_resilience.c",
+@@ -382,23 +268,31 @@ if (use_linux_config && ffmpeg_branding == "ChromeOS") {
+     "libavcodec/h263data.c",
+     "libavcodec/h263dec.c",
+     "libavcodec/h263dsp.c",
++    "libavcodec/idctdsp.c",
+     "libavcodec/intelh263dec.c",
+     "libavcodec/ituh263dec.c",
+     "libavcodec/jfdctfst.c",
+     "libavcodec/jfdctint.c",
+     "libavcodec/jrevdct.c",
+     "libavcodec/lsp.c",
++    "libavcodec/me_cmp.c",
+     "libavcodec/mpeg4video.c",
+     "libavcodec/mpeg4video_parser.c",
+     "libavcodec/mpeg4videodec.c",
+     "libavcodec/mpeg_er.c",
+     "libavcodec/mpegpicture.c",
+     "libavcodec/mpegutils.c",
++    "libavcodec/mpegvideo.c",
+     "libavcodec/mpegvideo_motion.c",
+     "libavcodec/mpegvideodata.c",
++    "libavcodec/mpegvideodsp.c",
+     "libavcodec/msgsmdec.c",
++    "libavcodec/pixblockdsp.c",
++    "libavcodec/qpeldsp.c",
+     "libavcodec/rl.c",
++    "libavcodec/simple_idct.c",
+     "libavcodec/tiff_common.c",
++    "libavcodec/xvididct.c",
+     "libavformat/amr.c",
+     "libavformat/avidec.c",
+   ]
+-- 
+2.20.1
+

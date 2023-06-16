@@ -1,0 +1,25 @@
+From 552e837bc9a10985645f0943ece2d430ab92ab37 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Tue, 13 Jun 2023 07:34:12 +0000
+Subject: [PATCH] remove __NR_newfstatat for loongarch
+
+---
+ .../chromium/sandbox/linux/syscall_broker/broker_process.cc     | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
+index 4d0d6ac6c..f3e4bf86d 100644
+--- a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
++++ b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
+@@ -159,7 +159,7 @@ bool BrokerProcess::IsSyscallAllowed(int sysno) const {
+ #if defined(__NR_fstatat)
+     case __NR_fstatat:
+ #endif
+-#if defined(__x86_64__) || defined(__aarch64__) || defined(__loongarch64)
++#if defined(__x86_64__) || defined(__aarch64__)
+     case __NR_newfstatat:
+ #endif
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_STAT);
+-- 
+2.30.2
+

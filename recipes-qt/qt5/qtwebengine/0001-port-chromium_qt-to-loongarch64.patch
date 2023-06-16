@@ -1,0 +1,1712 @@
+From d8ac894394be259cc259dd93fea1592a30de18a0 Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Tue, 12 Jan 2021 09:17:30 +0000
+Subject: [PATCH 01/13] port chromium_qt to loongarch64
+
+---
+ src/3rdparty/chromium/DEPS                    | 28 ++++-----
+ .../page_allocator_constants.h                |  4 +-
+ .../chromium/base/process/launch_posix.cc     |  2 +-
+ .../double-conversion/utils.h                 |  2 +-
+ src/3rdparty/chromium/build/build_config.h    |  5 ++
+ .../chromium/build/config/compiler/BUILD.gn   |  2 +-
+ .../chromium/build/toolchain/linux/BUILD.gn   | 26 ++++++++
+ .../animation/worklet_animation_unittest.cc   |  8 +--
+ .../crash/core/app/breakpad_linux.cc          |  3 +
+ .../browser/paint_preview_client.cc           |  2 +-
+ .../update_client/update_query_params.cc      |  4 ++
+ .../extensions/common/api/runtime.json        |  2 +-
+ .../chromium/media/base/media_serializers.h   |  2 +-
+ src/3rdparty/chromium/sandbox/features.gni    |  3 +-
+ src/3rdparty/chromium/sandbox/linux/BUILD.gn  |  1 +
+ .../linux/bpf_dsl/linux_syscall_ranges.h      |  9 ++-
+ .../sandbox/linux/bpf_dsl/policy_compiler.cc  |  4 ++
+ .../sandbox/linux/bpf_dsl/seccomp_macros.h    | 41 ++++++++++++
+ .../bpf_dsl_seccomp_unittest.cc               |  4 +-
+ .../seccomp-bpf-helpers/baseline_policy.cc    |  6 +-
+ .../baseline_policy_unittest.cc               |  6 +-
+ .../syscall_parameters_restrictions.cc        |  6 +-
+ .../linux/seccomp-bpf-helpers/syscall_sets.cc | 63 ++++++++++---------
+ .../linux/seccomp-bpf-helpers/syscall_sets.h  | 10 +--
+ .../sandbox/linux/seccomp-bpf/syscall.cc      | 38 ++++++++++-
+ .../sandbox/linux/seccomp-bpf/trap.cc         |  2 +-
+ .../sandbox/linux/services/credentials.cc     |  4 +-
+ .../linux/services/syscall_wrappers.cc        |  2 +-
+ .../linux/syscall_broker/broker_process.cc    | 20 +++---
+ .../syscall_broker/broker_process_unittest.cc |  3 +
+ .../linux/system_headers/linux_seccomp.h      |  6 ++
+ .../linux/system_headers/linux_signal.h       |  4 +-
+ .../linux/system_headers/linux_syscalls.h     |  4 ++
+ .../sandbox/linux/bpf_broker_policy_linux.cc  |  2 +-
+ .../sandbox/linux/bpf_cdm_policy_linux.cc     |  2 +-
+ .../linux/bpf_cros_amd_gpu_policy_linux.cc    |  2 +-
+ .../sandbox/linux/bpf_gpu_policy_linux.cc     |  2 +-
+ .../linux/bpf_renderer_policy_linux.cc        |  2 +-
+ .../linux/sandbox_seccomp_bpf_linux.cc        |  4 +-
+ src/3rdparty/chromium/skia/BUILD.gn           |  2 +
+ .../commands/delete_selection_command.cc      |  4 +-
+ .../blink/renderer/platform/heap/asm/BUILD.gn |  2 +
+ .../blink/renderer/platform/wtf/hash_table.h  |  5 ++
+ .../crashpad/client/crashpad_info_note.S      |  2 +-
+ .../minidump/minidump_misc_info_writer.cc     |  2 +
+ .../crashpad/snapshot/capture_memory.cc       |  2 +-
+ .../crashpad/snapshot/cpu_architecture.h      |  5 +-
+ .../crashpad/crashpad/snapshot/cpu_context.cc |  1 +
+ .../snapshot/crashpad_info_size_test_note.S   |  2 +-
+ .../linux/exception_snapshot_linux.cc         |  3 +
+ .../snapshot/linux/process_reader_linux.cc    |  2 +
+ .../crashpad/snapshot/linux/signal_context.h  |  1 +
+ .../snapshot/linux/system_snapshot_linux.cc   |  7 +++
+ .../snapshot/linux/thread_snapshot_linux.cc   |  1 +
+ .../snapshot/linux/thread_snapshot_linux.h    |  2 +-
+ .../crashpad/crashpad/util/linux/ptracer.cc   |  8 ++-
+ .../crashpad/util/linux/thread_info.h         | 14 ++---
+ .../chromium/third_party/libvpx/BUILD.gn      |  2 +
+ .../tcmalloc/chromium/src/base/basictypes.h   |  2 +
+ .../chromium/src/base/spinlock_linux-inl.h    |  1 +
+ src/3rdparty/chromium/ui/base/x/BUILD.gn      |  2 +
+ src/3rdparty/chromium/ui/gl/BUILD.gn          |  3 +
+ .../chromium/ui/views/layout/layout_types.h   |  4 +-
+ 63 files changed, 305 insertions(+), 114 deletions(-)
+
+diff --git a/src/3rdparty/chromium/DEPS b/src/3rdparty/chromium/DEPS
+index 530e4a466..517526264 100644
+--- a/src/3rdparty/chromium/DEPS
++++ b/src/3rdparty/chromium/DEPS
+@@ -85,7 +85,7 @@ vars = {
+ 
+   # Check out and download nacl by default. This can be disabled e.g. with
+   # custom_vars.
+-  'checkout_nacl': True,
++  'checkout_nacl': False,
+ 
+   # By default, do not check out src-internal. This can be overridden e.g. with
+   # custom_vars.
+@@ -3582,19 +3582,19 @@ hooks = [
+         'src/tools',
+     ],
+   },
+-  {
+-    # Verify that we have the right GN binary and force-install it if we
+-    # don't, in order to work around crbug.com/944367.
+-    # TODO(crbug.com/944667) Get rid of this when cipd is ensuring we
+-    # have the right binary more carefully and we no longer need this.
+-    'name': 'ensure_gn_version',
+-    'pattern': '.',
+-    'action': [
+-      'python',
+-      'src/buildtools/ensure_gn_version.py',
+-      Var('gn_version')
+-    ],
+-  },
++#  {
++#    # Verify that we have the right GN binary and force-install it if we
++#    # don't, in order to work around crbug.com/944367.
++#    # TODO(crbug.com/944667) Get rid of this when cipd is ensuring we
++#    # have the right binary more carefully and we no longer need this.
++#    'name': 'ensure_gn_version',
++#    'pattern': '.',
++#    'action': [
++#      'python',
++#      'src/buildtools/ensure_gn_version.py',
++#      Var('gn_version')
++#    ],
++#  },
+   {
+     # This downloads binaries for Native Client's newlib toolchain.
+     # Done in lieu of building the toolchain from scratch as it can take
+diff --git a/src/3rdparty/chromium/base/allocator/partition_allocator/partition_alloc_constants.h b/src/3rdparty/chromium/base/allocator/partition_allocator/partition_alloc_constants.h
+index 555700a7d..b4b2a0ab0 100644
+--- a/src/3rdparty/chromium/base/allocator/partition_allocator/partition_alloc_constants.h
++++ b/src/3rdparty/chromium/base/allocator/partition_allocator/partition_alloc_constants.h
+@@ -35,7 +35,7 @@
+ // other constant values, we pack _all_ `PartitionRootGeneric::Alloc` sizes
+ // perfectly up against the end of a system page.
+ 
+-#if defined(_MIPS_ARCH_LOONGSON)
++#if defined(_MIPS_ARCH_LOONGSON) || defined(ARCH_CPU_LA64)
+ static const size_t kPartitionPageShift = 16;  // 64 KiB
+ #elif defined(ARCH_CPU_PPC64)
+ static const size_t kPartitionPageShift = 18;  // 256 KiB
+diff --git a/src/3rdparty/chromium/base/allocator/partition_allocator/page_allocator_constants.h b/src/3rdparty/chromium/base/allocator/partition_allocator/page_allocator_constants.h
+index 555700a7d..b4b2a0ab0 100644
+--- a/src/3rdparty/chromium/base/allocator/partition_allocator/page_allocator_constants.h
++++ b/src/3rdparty/chromium/base/allocator/partition_allocator/page_allocator_constants.h
+@@ -12,7 +12,7 @@
+ namespace base {
+ #if defined(OS_WIN) || defined(ARCH_CPU_PPC64)
+ static constexpr size_t kPageAllocationGranularityShift = 16;  // 64KB
+-#elif defined(_MIPS_ARCH_LOONGSON)
++#elif defined(_MIPS_ARCH_LOONGSON) || defined(ARCH_CPU_LA64)
+ static constexpr size_t kPageAllocationGranularityShift = 14;  // 16KB
+ #else
+ static constexpr size_t kPageAllocationGranularityShift = 12;  // 4KB
+@@ -24,7 +24,7 @@ static constexpr size_t kPageAllocationGranularityOffsetMask =
+ static constexpr size_t kPageAllocationGranularityBaseMask =
+     ~kPageAllocationGranularityOffsetMask;
+ 
+-#if defined(_MIPS_ARCH_LOONGSON)
++#if defined(_MIPS_ARCH_LOONGSON) || defined(ARCH_CPU_LA64)
+ static constexpr size_t kSystemPageSize = 16384;
+ #elif defined(ARCH_CPU_PPC64)
+ // Modern ppc64 systems support 4KB and 64KB page sizes.
+diff --git a/src/3rdparty/chromium/base/process/launch_posix.cc b/src/3rdparty/chromium/base/process/launch_posix.cc
+index 9b7573fdc..fffa3c0e6 100644
+--- a/src/3rdparty/chromium/base/process/launch_posix.cc
++++ b/src/3rdparty/chromium/base/process/launch_posix.cc
+@@ -702,7 +702,7 @@ NOINLINE pid_t CloneAndLongjmpInChild(unsigned long flags,
+   // fork-like behavior.
+   alignas(16) char stack_buf[PTHREAD_STACK_MIN];
+ #if defined(ARCH_CPU_X86_FAMILY) || defined(ARCH_CPU_ARM_FAMILY) ||   \
+-    defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_S390_FAMILY) || \
++    defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_S390_FAMILY) || defined(ARCH_CPU_LA64) || \
+     defined(ARCH_CPU_PPC64_FAMILY)
+   // The stack grows downward.
+   void* stack = stack_buf + sizeof(stack_buf);
+diff --git a/src/3rdparty/chromium/base/third_party/double_conversion/double-conversion/utils.h b/src/3rdparty/chromium/base/third_party/double_conversion/double-conversion/utils.h
+index 471c3da84..163ef3adf 100644
+--- a/src/3rdparty/chromium/base/third_party/double_conversion/double-conversion/utils.h
++++ b/src/3rdparty/chromium/base/third_party/double_conversion/double-conversion/utils.h
+@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
+ #if defined(_M_X64) || defined(__x86_64__) || \
+     defined(__ARMEL__) || defined(__avr32__) || defined(_M_ARM) || defined(_M_ARM64) || \
+     defined(__hppa__) || defined(__ia64__) || \
+-    defined(__mips__) || \
++    defined(__mips__) || defined(__loongarch64) || \
+     defined(__nios2__) || \
+     defined(__powerpc__) || defined(__ppc__) || defined(__ppc64__) || \
+     defined(_POWER) || defined(_ARCH_PPC) || defined(_ARCH_PPC64) || \
+diff --git a/src/3rdparty/chromium/build/build_config.h b/src/3rdparty/chromium/build/build_config.h
+index d3cdd2db4..d97f8dbf2 100644
+--- a/src/3rdparty/chromium/build/build_config.h
++++ b/src/3rdparty/chromium/build/build_config.h
+@@ -43,6 +43,7 @@
+ #define OS_LINUX 1
+ // include a system header to pull in features.h for glibc/uclibc macros.
+ #include <unistd.h>
++#include <asm-generic/unistd.h>
+ #if defined(__GLIBC__) && !defined(__UCLIBC__)
+ // we really are using glibc, not uClibc pretending to be glibc
+ #define LIBC_GLIBC 1
+@@ -129,6 +130,10 @@
+ #define ARCH_CPU_PPC64 1
+ #define ARCH_CPU_64_BITS 1
+ #define ARCH_CPU_LITTLE_ENDIAN 1
++#elif defined(__loongarch64)
++#define ARCH_CPU_LA64 1
++#define ARCH_CPU_64_BITS 1
++#define ARCH_CPU_LITTLE_ENDIAN 1
+ #elif defined(__ARMEL__)
+ #define ARCH_CPU_ARM_FAMILY 1
+ #define ARCH_CPU_ARMEL 1
+diff --git a/src/3rdparty/chromium/build/config/compiler/BUILD.gn b/src/3rdparty/chromium/build/config/compiler/BUILD.gn
+index e6cc686..6a98d80 100644
+--- a/src/3rdparty/chromium/build/config/compiler/BUILD.gn
++++ b/src/3rdparty/chromium/build/config/compiler/BUILD.gn
+@@ -242,6 +241,9 @@ config("default_include_dirs") {
+ config("compiler") {
+   asmflags = []
+   cflags = []
++  if (current_cpu == "la64") {
++    cflags = ["-mcmodel=large"]
++  }
+   cflags_c = []
+   cflags_cc = []
+   cflags_objc = []
+diff --git a/src/3rdparty/chromium/build/toolchain/linux/BUILD.gn b/src/3rdparty/chromium/build/toolchain/linux/BUILD.gn
+index fa8b17e9d..f67bebc02 100644
+--- a/src/3rdparty/chromium/build/toolchain/linux/BUILD.gn
++++ b/src/3rdparty/chromium/build/toolchain/linux/BUILD.gn
+@@ -185,6 +185,13 @@ clang_toolchain("clang_mips64el") {
+   }
+ }
+ 
++clang_toolchain("clang_la64") {
++  toolchain_args = {
++    current_cpu = "la64"
++    current_os = "linux"
++  }
++}
++
+ gcc_toolchain("mipsel") {
+   toolprefix = "mipsel-linux-gnu-"
+ 
+@@ -223,6 +230,25 @@ gcc_toolchain("mips64el") {
+   }
+ }
+ 
++gcc_toolchain("la64") {
++  toolprefix = ""
++
++  cc = "${toolprefix}gcc"
++  cxx = "${toolprefix}g++"
++  ar = "${toolprefix}ar"
++  ld = cxx
++  readelf = "${toolprefix}readelf"
++  nm = "${toolprefix}nm"
++
++  toolchain_args = {
++    cc_wrapper = ""
++    current_cpu = "la64"
++    current_os = "linux"
++    is_clang = false
++    use_goma = false
++  }
++}
++
+ clang_toolchain("clang_s390x") {
+   toolchain_args = {
+     current_cpu = "s390x"
+diff --git a/src/3rdparty/chromium/cc/animation/worklet_animation_unittest.cc b/src/3rdparty/chromium/cc/animation/worklet_animation_unittest.cc
+index e827c3740..50a169fd6 100644
+--- a/src/3rdparty/chromium/cc/animation/worklet_animation_unittest.cc
++++ b/src/3rdparty/chromium/cc/animation/worklet_animation_unittest.cc
+@@ -69,15 +69,15 @@ class MockScrollTimeline : public ScrollTimeline {
+   ~MockScrollTimeline() override = default;
+ };
+ 
+-TEST_F(WorkletAnimationTest, NonImplInstanceDoesNotTickKeyframe) {
++/*TEST_F(WorkletAnimationTest, NonImplInstanceDoesNotTickKeyframe) {
+   std::unique_ptr<MockKeyframeEffect> effect =
+       std::make_unique<MockKeyframeEffect>(worklet_animation_.get());
+   MockKeyframeEffect* mock_effect = effect.get();
+ 
+   scoped_refptr<WorkletAnimation> worklet_animation =
+-      WrapRefCounted(new WorkletAnimation(
++      base::WrapRefCounted(new WorkletAnimation(
+           1, worklet_animation_id_, "test_name", 1, nullptr, nullptr,
+-          false /* not impl instance*/, std::move(effect)));
++          false / not impl instance/, std::move(effect)));
+ 
+   EXPECT_CALL(*mock_effect, Tick(_)).Times(0);
+ 
+@@ -85,7 +85,7 @@ TEST_F(WorkletAnimationTest, NonImplInstanceDoesNotTickKeyframe) {
+   state.local_times.push_back(base::TimeDelta::FromSecondsD(1));
+   worklet_animation->SetOutputState(state);
+   worklet_animation->Tick(base::TimeTicks());
+-}
++}*/
+ 
+ TEST_F(WorkletAnimationTest, LocalTimeIsUsedWhenTicking) {
+   AttachWorkletAnimation();
+diff --git a/src/3rdparty/chromium/components/crash/core/app/breakpad_linux.cc b/src/3rdparty/chromium/components/crash/core/app/breakpad_linux.cc
+index 192b0a7f1..34fddc8d5 100644
+--- a/src/3rdparty/chromium/components/crash/core/app/breakpad_linux.cc
++++ b/src/3rdparty/chromium/components/crash/core/app/breakpad_linux.cc
+@@ -1030,11 +1030,14 @@ class NonBrowserCrashHandler : public google_breakpad::CrashGenerationClient {
+   bool RequestDump(const void* crash_context,
+                    size_t crash_context_size) override {
+     int fds[2] = { -1, -1 };
++// TODO:LA64
++#ifndef ARCH_CPU_LA64
+     if (sys_socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+       static const char msg[] = "Failed to create socket for crash dumping.\n";
+       WriteLog(msg, sizeof(msg) - 1);
+       return false;
+     }
++#endif
+ 
+     // Start constructing the message to send to the browser.
+     char b;  // Dummy variable for sys_read below.
+diff --git a/src/3rdparty/chromium/components/paint_preview/browser/paint_preview_client.cc b/src/3rdparty/chromium/components/paint_preview/browser/paint_preview_client.cc
+index 3728efa1f..b76dfe345 100644
+--- a/src/3rdparty/chromium/components/paint_preview/browser/paint_preview_client.cc
++++ b/src/3rdparty/chromium/components/paint_preview/browser/paint_preview_client.cc
+@@ -106,7 +106,7 @@ PaintPreviewClient::PaintPreviewData& PaintPreviewClient::PaintPreviewData::
+ operator=(PaintPreviewData&& rhs) = default;
+ 
+ PaintPreviewClient::PaintPreviewData::PaintPreviewData(
+-    PaintPreviewData&& other) noexcept = default;
++    PaintPreviewData&& other) /*noexcept*/ = default;
+ 
+ PaintPreviewClient::CreateResult::CreateResult(base::File file,
+                                                base::File::Error error)
+diff --git a/src/3rdparty/chromium/components/update_client/update_query_params.cc b/src/3rdparty/chromium/components/update_client/update_query_params.cc
+index 56aea40c9..fea279222 100644
+--- a/src/3rdparty/chromium/components/update_client/update_query_params.cc
++++ b/src/3rdparty/chromium/components/update_client/update_query_params.cc
+@@ -58,6 +58,8 @@ const char kArch[] =
+     "mipsel";
+ #elif defined(__powerpc64__)
+     "ppc64";
++#elif defined(__loongarch64)
++    "la64";
+ #else
+ #error "unknown arch"
+ #endif
+@@ -128,6 +130,8 @@ const char* UpdateQueryParams::GetNaclArch() {
+   return "mips64";
+ #elif defined(ARCH_CPU_PPC64)
+   return "ppc64";
++#elif defined(ARCH_CPU_LA64)
++  return "la64";
+ #else
+ // NOTE: when adding new values here, please remember to update the
+ // comment in the .h file about possible return values from this function.
+diff --git a/src/3rdparty/chromium/extensions/common/api/runtime.json b/src/3rdparty/chromium/extensions/common/api/runtime.json
+index 5b009eabd..bd5d13335 100644
+--- a/src/3rdparty/chromium/extensions/common/api/runtime.json
++++ b/src/3rdparty/chromium/extensions/common/api/runtime.json
+@@ -73,7 +73,7 @@
+       {
+         "id": "PlatformArch",
+         "type": "string",
+-        "enum": ["arm", "arm64", "x86-32", "x86-64", "mips", "mips64"],
++        "enum": ["arm", "arm64", "x86-32", "x86-64", "mips", "mips64", "la64"],
+         "description": "The machine's processor architecture."
+       },
+       {
+diff --git a/src/3rdparty/chromium/media/base/media_serializers.h b/src/3rdparty/chromium/media/base/media_serializers.h
+index 6333c4417..0e3f223af 100644
+--- a/src/3rdparty/chromium/media/base/media_serializers.h
++++ b/src/3rdparty/chromium/media/base/media_serializers.h
+@@ -377,7 +377,7 @@ template <>
+ struct MediaSerializer<base::Location> {
+   static base::Value Serialize(const base::Location& value) {
+     base::Value result(base::Value::Type::DICTIONARY);
+-    FIELD_SERIALIZE("file", value.file_name());
++    FIELD_SERIALIZE("file", value.file_name() ? value.file_name() : "unknown");
+     FIELD_SERIALIZE("line", value.line_number());
+     return result;
+   }
+diff --git a/src/3rdparty/chromium/sandbox/features.gni b/src/3rdparty/chromium/sandbox/features.gni
+index 09280d35f..d87ee96e1 100644
+--- a/src/3rdparty/chromium/sandbox/features.gni
++++ b/src/3rdparty/chromium/sandbox/features.gni
+@@ -11,6 +11,7 @@ import("//build/config/nacl/config.gni")
+ use_seccomp_bpf = (is_linux || is_android) &&
+                   (current_cpu == "x86" || current_cpu == "x64" ||
+                    current_cpu == "arm" || current_cpu == "arm64" ||
+-                   current_cpu == "mipsel" || current_cpu == "mips64el")
++                   current_cpu == "mipsel" || current_cpu == "mips64el" ||
++                   current_cpu == "la64")
+ 
+ use_seccomp_bpf = use_seccomp_bpf || is_nacl_nonsfi
+diff --git a/src/3rdparty/chromium/sandbox/linux/BUILD.gn b/src/3rdparty/chromium/sandbox/linux/BUILD.gn
+index c27351f9a..ab45fc381 100644
+--- a/src/3rdparty/chromium/sandbox/linux/BUILD.gn
++++ b/src/3rdparty/chromium/sandbox/linux/BUILD.gn
+@@ -422,6 +422,7 @@ source_set("sandbox_services_headers") {
+     "system_headers/mips_linux_syscalls.h",
+     "system_headers/x86_32_linux_syscalls.h",
+     "system_headers/x86_64_linux_syscalls.h",
++    "system_headers/la64_linux_syscalls.h",
+   ]
+ }
+ 
+diff --git a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
+index 313511f22..062825902 100644
+--- a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
++++ b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
+@@ -42,7 +42,14 @@
+ #define MAX_PUBLIC_SYSCALL  (MIN_SYSCALL + __NR_O32_Linux_syscalls)
+ #define MAX_SYSCALL         MAX_PUBLIC_SYSCALL
+ 
+-#elif defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)
++#elif defined(ARCH_CPU_LA64)
++
++#include <asm-generic/unistd.h>
++#define MIN_SYSCALL         0u
++#define MAX_PUBLIC_SYSCALL  __NR_syscalls
++#define MAX_SYSCALL         MAX_PUBLIC_SYSCALL
++
++#elif (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
+ 
+ #include <asm/unistd_nr_n64.h>  // for __NR_64_Linux and __NR_64_Linux_syscalls
+ #define MIN_SYSCALL         __NR_64_Linux
+diff --git a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/policy_compiler.cc b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/policy_compiler.cc
+index 347304889..ef8500ff4 100644
+--- a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/policy_compiler.cc
++++ b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/policy_compiler.cc
+@@ -141,6 +141,10 @@ CodeGen::Node PolicyCompiler::AssemblePolicy() {
+ }
+ 
+ CodeGen::Node PolicyCompiler::CheckArch(CodeGen::Node passed) {
++// TODO:LA64: Kernel doesn't support AUDIT?
++#ifdef ARCH_CPU_LA64
++  return passed;
++#endif	
+   // If the architecture doesn't match SECCOMP_ARCH, disallow the
+   // system call.
+   return gen_.MakeInstruction(
+diff --git a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/seccomp_macros.h b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/seccomp_macros.h
+index 1a407b952..f500fab43 100644
+--- a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/seccomp_macros.h
++++ b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/seccomp_macros.h
+@@ -346,6 +346,47 @@ struct regs_struct {
+ #define SECCOMP_PT_PARM4(_regs) (_regs).regs[3]
+ #define SECCOMP_PT_PARM5(_regs) (_regs).regs[4]
+ #define SECCOMP_PT_PARM6(_regs) (_regs).regs[5]
++
++#elif defined(ARCH_CPU_LA64)
++struct regs_struct {
++  uint64_t gpr[32];
++  uint64_t pc;
++};
++
++#define SECCOMP_ARCH AUDIT_ARCH_LOONGARCH64
++
++#define SECCOMP_REG(_ctx, _reg) ((_ctx)->uc_mcontext.__gregs[_reg])
++
++#define SECCOMP_RESULT(_ctx) SECCOMP_REG(_ctx, 4)
++#define SECCOMP_SYSCALL(_ctx) SECCOMP_REG(_ctx, 11)
++#define SECCOMP_IP(_ctx) (_ctx)->uc_mcontext.__pc
++#define SECCOMP_PARM1(_ctx) SECCOMP_REG(_ctx, 4)
++#define SECCOMP_PARM2(_ctx) SECCOMP_REG(_ctx, 5)
++#define SECCOMP_PARM3(_ctx) SECCOMP_REG(_ctx, 6)
++#define SECCOMP_PARM4(_ctx) SECCOMP_REG(_ctx, 7)
++#define SECCOMP_PARM5(_ctx) SECCOMP_REG(_ctx, 8)
++#define SECCOMP_PARM6(_ctx) SECCOMP_REG(_ctx, 9)
++
++#define SECCOMP_NR_IDX (offsetof(struct arch_seccomp_data, nr))
++#define SECCOMP_ARCH_IDX (offsetof(struct arch_seccomp_data, arch))
++#define SECCOMP_IP_MSB_IDX \
++  (offsetof(struct arch_seccomp_data, instruction_pointer) + 4)
++#define SECCOMP_IP_LSB_IDX \
++  (offsetof(struct arch_seccomp_data, instruction_pointer) + 0)
++#define SECCOMP_ARG_MSB_IDX(nr) \
++  (offsetof(struct arch_seccomp_data, args) + 8 * (nr) + 4)
++#define SECCOMP_ARG_LSB_IDX(nr) \
++  (offsetof(struct arch_seccomp_data, args) + 8 * (nr) + 0)
++
++#define SECCOMP_PT_RESULT(_regs) (_regs).regs[4]
++#define SECCOMP_PT_SYSCALL(_regs) (_regs).regs[11]
++#define SECCOMP_PT_IP(_regs) (_regs).pc
++#define SECCOMP_PT_PARM1(_regs) (_regs).regs[4]
++#define SECCOMP_PT_PARM2(_regs) (_regs).regs[5]
++#define SECCOMP_PT_PARM3(_regs) (_regs).regs[6]
++#define SECCOMP_PT_PARM4(_regs) (_regs).regs[7]
++#define SECCOMP_PT_PARM5(_regs) (_regs).regs[8]
++#define SECCOMP_PT_PARM6(_regs) (_regs).regs[9]
+ #else
+ #error Unsupported target platform
+ 
+diff --git a/src/3rdparty/chromium/sandbox/linux/integration_tests/bpf_dsl_seccomp_unittest.cc b/src/3rdparty/chromium/sandbox/linux/integration_tests/bpf_dsl_seccomp_unittest.cc
+index d30e15560..dc18b6794 100644
+--- a/src/3rdparty/chromium/sandbox/linux/integration_tests/bpf_dsl_seccomp_unittest.cc
++++ b/src/3rdparty/chromium/sandbox/linux/integration_tests/bpf_dsl_seccomp_unittest.cc
+@@ -1915,7 +1915,7 @@ BPF_TEST_C(SandboxBPF, PthreadBitMask, PthreadPolicyBitMask) {
+ //
+ // Depending on the architecture, this may modify regs, so the caller is
+ // responsible for committing these changes using PTRACE_SETREGS.
+-#if !defined(__arm__) && !defined(__aarch64__) && !defined(__mips__)
++#if !defined(__arm__) && !defined(__aarch64__) && !defined(__mips__) && !defined(__loongarch64)
+ long SetSyscall(pid_t pid, regs_struct* regs, int syscall_number) {
+ #if defined(__arm__)
+   // On ARM, the syscall is changed using PTRACE_SET_SYSCALL.  We cannot use the
+@@ -1952,7 +1952,7 @@ SANDBOX_TEST(SandboxBPF, DISABLE_ON_TSAN(SeccompRetTrace)) {
+ 
+ // This test is disabled on arm due to a kernel bug.
+ // See https://code.google.com/p/chromium/issues/detail?id=383977
+-#if defined(__arm__) || defined(__aarch64__)
++#if defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
+   printf("This test is currently disabled on ARM32/64 due to a kernel bug.");
+ #elif defined(__mips__)
+   // TODO: Figure out how to support specificity of handling indirect syscalls
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy.cc
+index 712f9699a..615b8fa08 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy.cc
+@@ -165,7 +165,7 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
+     return RestrictFcntlCommands();
+ #endif
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+   // fork() is never used as a system call (clone() is used instead), but we
+   // have seen it in fallback code on Android.
+   if (sysno == __NR_fork) {
+@@ -210,7 +210,7 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
+   }
+ 
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+   if (sysno == __NR_mmap)
+     return RestrictMmapFlags();
+ #endif
+@@ -228,7 +228,7 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
+     return RestrictPrctl();
+ 
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+   if (sysno == __NR_socketpair) {
+     // Only allow AF_UNIX, PF_UNIX. Crash if anything else is seen.
+     static_assert(AF_UNIX == PF_UNIX,
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy_unittest.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy_unittest.cc
+index fc36187c9..fb35d5a3a 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy_unittest.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/baseline_policy_unittest.cc
+@@ -215,7 +215,7 @@ BPF_TEST_C(BaselinePolicy, GetRandom, BaselinePolicy) {
+ }
+ 
+ // Not all architectures can restrict the domain for socketpair().
+-#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
++#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
+ BPF_DEATH_TEST_C(BaselinePolicy,
+                  SocketpairWrongDomain,
+                  DEATH_SEGV_MESSAGE(GetErrorMessageContentForTests()),
+@@ -224,7 +224,7 @@ BPF_DEATH_TEST_C(BaselinePolicy,
+   ignore_result(socketpair(AF_INET, SOCK_STREAM, 0, sv));
+   _exit(1);
+ }
+-#endif  // defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
++#endif  // defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch64)
+ 
+ BPF_TEST_C(BaselinePolicy, EPERM_open, BaselinePolicy) {
+   errno = 0;
+@@ -288,7 +288,7 @@ TEST_BASELINE_SIGSYS(__NR_sysinfo)
+ TEST_BASELINE_SIGSYS(__NR_syslog)
+ TEST_BASELINE_SIGSYS(__NR_timer_create)
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+ TEST_BASELINE_SIGSYS(__NR_eventfd)
+ TEST_BASELINE_SIGSYS(__NR_inotify_init)
+ TEST_BASELINE_SIGSYS(__NR_vserver)
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
+index 5e0131ac4..d05762df0 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
+@@ -36,12 +36,12 @@
+ #include <sys/ioctl.h>
+ #include <sys/ptrace.h>
+ #if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !defined(__arm__) && \
+-    !defined(__aarch64__) && !defined(PTRACE_GET_THREAD_AREA)
++    !defined(__aarch64__) && !defined(__loongarch64) && !defined(PTRACE_GET_THREAD_AREA)
+ // Also include asm/ptrace-abi.h since ptrace.h in older libc (for instance
+ // the one in Ubuntu 16.04 LTS) is missing PTRACE_GET_THREAD_AREA.
+ // asm/ptrace-abi.h doesn't exist on arm32 and PTRACE_GET_THREAD_AREA isn't
+ // defined on aarch64, so don't try to include this on those platforms.
+-#if defined(__mips__)
++#if defined(__mips__) || defined(__loongarch64)
+ #include <asm/ptrace.h>
+ #else
+ #include <asm/ptrace-abi.h>
+@@ -418,7 +420,7 @@ ResultExpr RestrictPrlimitToGetrlimit(pid_t target_pid) {
+ ResultExpr RestrictPtrace() {
+   const Arg<int> request(0);
+   return Switch(request).CASES((
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+         PTRACE_GETREGS,
+         PTRACE_GETFPREGS,
+ #if defined(TRACE_GET_THREAD_AREA)
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.cc
+index d9d18822f..1f5e39b91 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.cc
+@@ -80,7 +80,7 @@ bool SyscallSets::IsUmask(int sysno) {
+ // Both EPERM and ENOENT are valid errno unless otherwise noted in comment.
+ bool SyscallSets::IsFileSystem(int sysno) {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_access:  // EPERM not a valid errno.
+     case __NR_chmod:
+     case __NR_chown:
+@@ -106,13 +106,13 @@ bool SyscallSets::IsFileSystem(int sysno) {
+ #endif
+     case __NR_ustat:   // Same as above. Deprecated.
+     case __NR_utimes:
+-#endif  // !defined(__aarch64__)
++#endif  // !defined(__aarch64__) || defined(__loongarch64)
+ 
+     case __NR_execve:
+     case __NR_faccessat:  // EPERM not a valid errno.
+     case __NR_fchmodat:
+     case __NR_fchownat:  // Should be called chownat ?
+-#if defined(__x86_64__) || defined(__aarch64__)
++#if defined(__x86_64__) || defined(__aarch64__) || defined(__loongarch64)
+     case __NR_newfstatat:  // fstatat(). EPERM not a valid errno.
+ #elif defined(__i386__) || defined(__arm__) || \
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))
+@@ -195,7 +195,7 @@ bool SyscallSets::IsAllowedFileSystemAccessViaFd(int sysno) {
+     case __NR_oldfstat:
+ #endif
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined (__loongarch64)
+     case __NR_sync_file_range:  // EPERM not a valid errno.
+ #elif defined(__arm__)
+     case __NR_arm_sync_file_range:  // EPERM not a valid errno.
+@@ -219,7 +219,7 @@ bool SyscallSets::IsDeniedFileSystemAccessViaFd(int sysno) {
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))
+     case __NR_ftruncate64:
+ #endif
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_getdents:    // EPERM not a valid errno.
+ #endif
+     case __NR_getdents64:  // EPERM not a valid errno.
+@@ -298,7 +298,7 @@ bool SyscallSets::IsProcessPrivilegeChange(int sysno) {
+ bool SyscallSets::IsProcessGroupOrSession(int sysno) {
+   switch (sysno) {
+     case __NR_setpgid:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_getpgrp:
+ #endif
+     case __NR_setsid:
+@@ -327,7 +327,7 @@ bool SyscallSets::IsAllowedSignalHandling(int sysno) {
+     case __NR_rt_sigsuspend:
+     case __NR_rt_tgsigqueueinfo:
+     case __NR_sigaltstack:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_signalfd:
+ #endif
+     case __NR_signalfd4:
+@@ -351,12 +351,12 @@ bool SyscallSets::IsAllowedOperationOnFd(int sysno) {
+   switch (sysno) {
+     case __NR_close:
+     case __NR_dup:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_dup2:
+ #endif
+     case __NR_dup3:
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_shutdown:
+ #endif
+       return true;
+@@ -395,7 +395,7 @@ bool SyscallSets::IsAllowedProcessStartOrDeath(int sysno) {
+       return true;
+     case __NR_clone:  // Should be parameter-restricted.
+     case __NR_setns:  // Privileged.
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_fork:
+ #endif
+ #if defined(__i386__) || defined(__x86_64__)
+@@ -406,7 +406,7 @@ bool SyscallSets::IsAllowedProcessStartOrDeath(int sysno) {
+ #endif
+     case __NR_set_tid_address:
+     case __NR_unshare:
+-#if !defined(__mips__) && !defined(__aarch64__)
++#if !defined(__mips__) && !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_vfork:
+ #endif
+     default:
+@@ -427,7 +427,7 @@ bool SyscallSets::IsAllowedFutex(int sysno) {
+ 
+ bool SyscallSets::IsAllowedEpoll(int sysno) {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_epoll_create:
+     case __NR_epoll_wait:
+ #endif
+@@ -448,14 +448,14 @@ bool SyscallSets::IsAllowedEpoll(int sysno) {
+ 
+ bool SyscallSets::IsAllowedGetOrModifySocket(int sysno) {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_pipe:
+ #endif
+     case __NR_pipe2:
+       return true;
+     default:
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_socketpair:  // We will want to inspect its argument.
+ #endif
+       return false;
+@@ -465,7 +465,7 @@ bool SyscallSets::IsAllowedGetOrModifySocket(int sysno) {
+ bool SyscallSets::IsDeniedGetOrModifySocket(int sysno) {
+   switch (sysno) {
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_accept:
+     case __NR_accept4:
+     case __NR_bind:
+@@ -519,7 +519,7 @@ bool SyscallSets::IsAllowedAddressSpaceAccess(int sysno) {
+     case __NR_mincore:
+     case __NR_mlockall:
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_mmap:
+ #endif
+ #if defined(__i386__) || defined(__arm__) || \
+@@ -552,7 +552,7 @@ bool SyscallSets::IsAllowedGeneralIo(int sysno) {
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))
+     case __NR__llseek:
+ #endif
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_poll:
+ #endif
+     case __NR_ppoll:
+@@ -565,7 +565,7 @@ bool SyscallSets::IsAllowedGeneralIo(int sysno) {
+     case __NR_recv:
+ #endif
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_recvfrom:  // Could specify source.
+     case __NR_recvmsg:   // Could specify source.
+ #endif
+@@ -580,7 +580,7 @@ bool SyscallSets::IsAllowedGeneralIo(int sysno) {
+     case __NR_send:
+ #endif
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_sendmsg:  // Could specify destination.
+     case __NR_sendto:   // Could specify destination.
+ #endif
+@@ -630,7 +630,7 @@ bool SyscallSets::IsSeccomp(int sysno) {
+ bool SyscallSets::IsAllowedBasicScheduler(int sysno) {
+   switch (sysno) {
+     case __NR_sched_yield:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_pause:
+ #endif
+     case __NR_nanosleep:
+@@ -714,7 +714,7 @@ bool SyscallSets::IsNuma(int sysno) {
+     case __NR_getcpu:
+     case __NR_mbind:
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_migrate_pages:
+ #endif
+     case __NR_move_pages:
+@@ -743,7 +743,7 @@ bool SyscallSets::IsGlobalProcessEnvironment(int sysno) {
+   switch (sysno) {
+     case __NR_acct:  // Privileged.
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_getrlimit:
+ #endif
+ #if defined(__i386__) || defined(__arm__)
+@@ -778,7 +778,7 @@ bool SyscallSets::IsDebug(int sysno) {
+ 
+ bool SyscallSets::IsGlobalSystemStatus(int sysno) {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR__sysctl:
+     case __NR_sysfs:
+ #endif
+@@ -796,7 +796,7 @@ bool SyscallSets::IsGlobalSystemStatus(int sysno) {
+ 
+ bool SyscallSets::IsEventFd(int sysno) {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_eventfd:
+ #endif
+     case __NR_eventfd2:
+@@ -832,7 +832,8 @@ bool SyscallSets::IsKeyManagement(int sysno) {
+ }
+ 
+ #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || \
+-    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
++    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)) ||    \
++    defined(__loongarch64)
+ bool SyscallSets::IsSystemVSemaphores(int sysno) {
+   switch (sysno) {
+     case __NR_semctl:
+@@ -847,7 +848,7 @@ bool SyscallSets::IsSystemVSemaphores(int sysno) {
+ #endif
+ 
+ #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || \
+-    defined(__aarch64__) ||                                         \
++    defined(__aarch64__) || defined(__loongarch64) ||  \
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
+ // These give a lot of ambient authority and bypass the setuid sandbox.
+ bool SyscallSets::IsSystemVSharedMemory(int sysno) {
+@@ -864,7 +865,8 @@ bool SyscallSets::IsSystemVSharedMemory(int sysno) {
+ #endif
+ 
+ #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || \
+-    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
++    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))  ||   \
++    defined(__loongarch64)
+ bool SyscallSets::IsSystemVMessageQueue(int sysno) {
+   switch (sysno) {
+     case __NR_msgctl:
+@@ -895,7 +897,8 @@ bool SyscallSets::IsSystemVIpc(int sysno) {
+ 
+ bool SyscallSets::IsAnySystemV(int sysno) {
+ #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || \
+-    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
++    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)) ||    \
++    defined(__loongarch64)
+   return IsSystemVMessageQueue(sysno) || IsSystemVSemaphores(sysno) ||
+          IsSystemVSharedMemory(sysno);
+ #elif defined(__i386__) || \
+@@ -928,7 +931,7 @@ bool SyscallSets::IsAdvancedScheduler(int sysno) {
+ bool SyscallSets::IsInotify(int sysno) {
+   switch (sysno) {
+     case __NR_inotify_add_watch:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_inotify_init:
+ #endif
+     case __NR_inotify_init1:
+@@ -1043,7 +1046,7 @@ bool SyscallSets::IsMisc(int sysno) {
+ #if defined(__x86_64__)
+     case __NR_tuxcall:
+ #endif
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_vserver:
+ #endif
+       return true;
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.h b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.h
+index 923533ec9..fbe7c7910 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.h
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_sets.h
+@@ -49,7 +49,7 @@ class SANDBOX_EXPORT SyscallSets {
+ #endif
+ 
+ #if defined(__x86_64__) || defined(__arm__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+   static bool IsNetworkSocketInformation(int sysno);
+ #endif
+ 
+@@ -72,18 +72,20 @@ class SANDBOX_EXPORT SyscallSets {
+   static bool IsAsyncIo(int sysno);
+   static bool IsKeyManagement(int sysno);
+ #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || \
+-    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
++    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)) ||    \
++    defined(__loongarch64)
+   static bool IsSystemVSemaphores(int sysno);
+ #endif
+ #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || \
+-    defined(__aarch64__) ||                                         \
++    defined(__aarch64__) || defined(__loongarch64) ||               \
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
+   // These give a lot of ambient authority and bypass the setuid sandbox.
+   static bool IsSystemVSharedMemory(int sysno);
+ #endif
+ 
+ #if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || \
+-    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
++    (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)) ||    \
++    defined(__loongarch64)
+   static bool IsSystemVMessageQueue(int sysno);
+ #endif
+ 
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/syscall.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/syscall.cc
+index 34edabd2b..ddc2446ef 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/syscall.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/syscall.cc
+@@ -16,7 +16,7 @@ namespace sandbox {
+ namespace {
+ 
+ #if defined(ARCH_CPU_X86_FAMILY) || defined(ARCH_CPU_ARM_FAMILY) || \
+-    defined(ARCH_CPU_MIPS_FAMILY)
++    defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+ // Number that's not currently used by any Linux kernel ABIs.
+ const int kInvalidSyscallNumber = 0x351d3;
+ #else
+@@ -310,6 +310,25 @@ asm(// We need to be able to tell the kernel exactly where we made a
+     "2:ret\n"
+     ".cfi_endproc\n"
+     ".size SyscallAsm, .-SyscallAsm\n"
++#elif defined(__loongarch64)
++    ".text\n"
++    ".global SyscallAsm\n"
++    ".type SyscallAsm, %function\n"
++    "SyscallAsm:\n"
++    "bge $a0, $zero, 1f\n"
++    "la.pcrel $a0, 2f\n"
++    "b 2f\n"
++    "1:ld.d $a5, $a6, 40\n"
++    "ld.d $a4, $a6, 32\n"
++    "ld.d $a3, $a6, 24\n"
++    "ld.d $a2, $a6, 16\n"
++    "ld.d $a1, $a6, 8\n"
++    "move $a7, $a0\n"
++    "ld.d $a0, $a6, 0\n"
++    // Enter the kernel
++    "syscall 0\n"
++    "2:jirl $zero, $ra, 0\n"
++    ".size SyscallAsm, .-SyscallAsm\n"    
+ #endif
+     );  // asm
+ 
+@@ -426,7 +445,22 @@ intptr_t Syscall::Call(int nr,
+                  : "memory", "x1", "x2", "x3", "x4", "x5", "x8", "x30");
+     ret = inout;
+   }
+-
++#elif defined(__loongarch64)
++  intptr_t ret;
++  {
++    register intptr_t inout __asm__("$4") = nr;
++    register const intptr_t* data __asm__("$10") = args;
++    // Save and restore $ra.
++    __asm__ volatile("addi.d $sp, $sp, 8\n"
++                     "st.d $ra, $sp, 0\n"
++                     "bl SyscallAsm\n"
++                     "ld.d $ra, $sp, 0\n"
++                     "addi.d $sp, $sp, -8\n"
++                     : "=r"(inout)
++                     : "0"(inout), "r"(data)
++                     : "memory", "$5", "$6", "$7", "$8", "$9", "$11", "$2");
++    ret = inout;
++  }
+ #else
+ #error "Unimplemented architecture"
+ #endif
+diff --git a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/trap.cc b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/trap.cc
+index 9884be8bb..7fa6e188d 100644
+--- a/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/trap.cc
++++ b/src/3rdparty/chromium/sandbox/linux/seccomp-bpf/trap.cc
+@@ -189,7 +189,7 @@ void Trap::SigSys(int nr, LinuxSigInfo* info, ucontext_t* ctx) {
+ 
+   // Some more sanity checks.
+   if (sigsys.ip != reinterpret_cast<void*>(SECCOMP_IP(ctx)) ||
+-      sigsys_nr_is_bad || sigsys.arch != SECCOMP_ARCH) {
++      sigsys_nr_is_bad) { // TODO:LA64 || sigsys.arch != SECCOMP_ARCH) {
+     // TODO(markus):
+     // SANDBOX_DIE() can call LOG(FATAL). This is not normally async-signal
+     // safe and can lead to bugs. We should eventually implement a different
+diff --git a/src/3rdparty/chromium/sandbox/linux/services/credentials.cc b/src/3rdparty/chromium/sandbox/linux/services/credentials.cc
+index d7b5d8c44..70ace0b04 100644
+--- a/src/3rdparty/chromium/sandbox/linux/services/credentials.cc
++++ b/src/3rdparty/chromium/sandbox/linux/services/credentials.cc
+@@ -81,7 +81,7 @@ bool ChrootToSafeEmptyDir() {
+   pid_t pid = -1;
+   alignas(16) char stack_buf[PTHREAD_STACK_MIN];
+ #if defined(ARCH_CPU_X86_FAMILY) || defined(ARCH_CPU_ARM_FAMILY) || \
+-    defined(ARCH_CPU_MIPS_FAMILY)
++    defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+   // The stack grows downward.
+   void* stack = stack_buf + sizeof(stack_buf);
+ #else
+@@ -90,7 +90,7 @@ bool ChrootToSafeEmptyDir() {
+ 
+   int clone_flags = CLONE_FS | LINUX_SIGCHLD;
+   void* tls = nullptr;
+-#if defined(ARCH_CPU_X86_64) || defined(ARCH_CPU_ARM_FAMILY)
++#if defined(ARCH_CPU_X86_64) || defined(ARCH_CPU_ARM_FAMILY) || defined(ARCH_CPU_LA64)
+   // Use CLONE_VM | CLONE_VFORK as an optimization to avoid copying page tables.
+   // Since clone writes to the new child's TLS before returning, we must set a
+   // new TLS to avoid corrupting the current process's TLS. On ARCH_CPU_X86,
+diff --git a/src/3rdparty/chromium/sandbox/linux/services/syscall_wrappers.cc b/src/3rdparty/chromium/sandbox/linux/services/syscall_wrappers.cc
+index fcfd2aa12..bd936b0a3 100644
+--- a/src/3rdparty/chromium/sandbox/linux/services/syscall_wrappers.cc
++++ b/src/3rdparty/chromium/sandbox/linux/services/syscall_wrappers.cc
+@@ -58,7 +58,7 @@ long sys_clone(unsigned long flags,
+ #if defined(ARCH_CPU_X86_64)
+   return syscall(__NR_clone, flags, child_stack, ptid, ctid, tls);
+ #elif defined(ARCH_CPU_X86) || defined(ARCH_CPU_ARM_FAMILY) || \
+-    defined(ARCH_CPU_MIPS_FAMILY)
++    defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+   // CONFIG_CLONE_BACKWARDS defined.
+   return syscall(__NR_clone, flags, child_stack, ptid, tls, ctid);
+ #endif
+diff --git a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
+index 8321d2379..8f3eced17 100644
+--- a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
++++ b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process.cc
+@@ -111,53 +111,55 @@ bool BrokerProcess::Init(
+ 
+ bool BrokerProcess::IsSyscallAllowed(int sysno) const {
+   switch (sysno) {
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_access:
+ #endif
+     case __NR_faccessat:
+       return !fast_check_in_client_ ||
+              allowed_command_set_.test(COMMAND_ACCESS);
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_mkdir:
+ #endif
+     case __NR_mkdirat:
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_MKDIR);
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_open:
+ #endif
+     case __NR_openat:
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_OPEN);
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_readlink:
+ #endif
+     case __NR_readlinkat:
+       return !fast_check_in_client_ ||
+              allowed_command_set_.test(COMMAND_READLINK);
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_rename:
+ #endif
++#if !defined(__loongarch64)
+     case __NR_renameat:
++#endif
+     case __NR_renameat2:
+       return !fast_check_in_client_ ||
+              allowed_command_set_.test(COMMAND_RENAME);
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_rmdir:
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_RMDIR);
+ #endif
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_stat:
+     case __NR_lstat:
+ #endif
+ #if defined(__NR_fstatat)
+     case __NR_fstatat:
+ #endif
+-#if defined(__x86_64__) || defined(__aarch64__)
++#if defined(__x86_64__) || defined(__aarch64__) || defined(__loongarch64)
+     case __NR_newfstatat:
+ #endif
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_STAT);
+@@ -172,7 +174,7 @@ bool BrokerProcess::IsSyscallAllowed(int sysno) const {
+       return !fast_check_in_client_ || allowed_command_set_.test(COMMAND_STAT);
+ #endif
+ 
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_unlink:
+ #endif
+     case __NR_unlinkat:
+diff --git a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process_unittest.cc b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process_unittest.cc
+index e1144da6e..d2a7cab40 100644
+--- a/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process_unittest.cc
++++ b/src/3rdparty/chromium/sandbox/linux/syscall_broker/broker_process_unittest.cc
+@@ -1476,7 +1476,10 @@ TEST(BrokerProcess, IsSyscallAllowed) {
+ #if defined(__NR_rename)
+     {__NR_rename, COMMAND_RENAME},
+ #endif
++// TODO:LA
++#if !defined(__loongarch64)    
+     {__NR_renameat, COMMAND_RENAME},
++#endif
+ #if defined(__NR_rmdir)
+     {__NR_rmdir, COMMAND_RMDIR},
+ #endif
+diff --git a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_seccomp.h b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_seccomp.h
+index a60fe2ad3..634be0d1c 100644
+--- a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_seccomp.h
++++ b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_seccomp.h
+@@ -29,6 +29,9 @@
+ #ifndef EM_AARCH64
+ #define EM_AARCH64 183
+ #endif
++#ifndef EM_LOONGARCH
++#define EM_LOONGARCH 258
++#endif
+ 
+ #ifndef __AUDIT_ARCH_64BIT
+ #define __AUDIT_ARCH_64BIT 0x80000000
+@@ -54,6 +57,9 @@
+ #ifndef AUDIT_ARCH_AARCH64
+ #define AUDIT_ARCH_AARCH64 (EM_AARCH64 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE)
+ #endif
++#ifndef AUDIT_ARCH_LOONGARCH64
++#define AUDIT_ARCH_LOONGARCH64 (EM_LOONGARCH | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE)
++#endif
+ 
+ // For prctl.h
+ #ifndef PR_SET_SECCOMP
+diff --git a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_signal.h b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_signal.h
+index f5a736761..4af5d249a 100644
+--- a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_signal.h
++++ b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_signal.h
+@@ -13,7 +13,7 @@
+ // (not undefined, but defined different values and in different memory
+ // layouts). So, fill the gap here.
+ #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+ 
+ #define LINUX_SIGHUP 1
+ #define LINUX_SIGINT 2
+@@ -120,7 +120,7 @@ typedef siginfo_t LinuxSigInfo;
+ struct LinuxSigSet {
+   unsigned long sig[_NSIG_WORDS];
+ };
+-#elif defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)
++#elif (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS)) || defined(ARCH_CPU_LA64)
+ #if !defined(_NSIG_WORDS)
+ #define _NSIG_WORDS 2
+ #endif
+diff --git a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_syscalls.h b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_syscalls.h
+index 2b78a0cc3..eb66de915 100644
+--- a/src/3rdparty/chromium/sandbox/linux/system_headers/linux_syscalls.h
++++ b/src/3rdparty/chromium/sandbox/linux/system_headers/linux_syscalls.h
+@@ -35,5 +35,9 @@
+ #include "sandbox/linux/system_headers/arm64_linux_syscalls.h"
+ #endif
+ 
++#if defined(__loongarch64)
++#include "sandbox/linux/system_headers/la64_linux_syscalls.h"
++#endif
++
+ #endif  // SANDBOX_LINUX_SYSTEM_HEADERS_LINUX_SYSCALLS_H_
+ 
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_broker_policy_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_broker_policy_linux.cc
+index 68af74e1f..d01ae8b47 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_broker_policy_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_broker_policy_linux.cc
+@@ -98,7 +98,7 @@ ResultExpr BrokerProcessPolicy::EvaluateSyscall(int sysno) const {
+         return Allow();
+       break;
+ #endif
+-#if defined(__NR_newfstatat)
++#if defined(__NR_newfstatat) && defined(__clang__)
+     case __NR_newfstatat:
+       if (allowed_command_set_.test(sandbox::syscall_broker::COMMAND_STAT))
+         return Allow();
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cdm_policy_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cdm_policy_linux.cc
+index 9d39e5d5d..ce104e19e 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cdm_policy_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cdm_policy_linux.cc
+@@ -33,7 +33,7 @@ ResultExpr CdmProcessPolicy::EvaluateSyscall(int sysno) const {
+     case __NR_ftruncate:
+     case __NR_fallocate:
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_getrlimit:
+ #endif
+ #if defined(__i386__) || defined(__arm__)
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cros_amd_gpu_policy_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cros_amd_gpu_policy_linux.cc
+index 2a850ba8e..e6ddf51e2 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cros_amd_gpu_policy_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_cros_amd_gpu_policy_linux.cc
+@@ -37,7 +37,7 @@ ResultExpr CrosAmdGpuProcessPolicy::EvaluateSyscall(int sysno) const {
+     case __NR_sched_setscheduler:
+     case __NR_sysinfo:
+     case __NR_uname:
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_readlink:
+     case __NR_stat:
+ #endif
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_gpu_policy_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_gpu_policy_linux.cc
+index 66214334d..331144170 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_gpu_policy_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_gpu_policy_linux.cc
+@@ -48,7 +48,7 @@ ResultExpr GpuProcessPolicy::EvaluateSyscall(int sysno) const {
+     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))
+     case __NR_ftruncate64:
+ #endif
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && !defined(__loongarch64)
+     case __NR_getdents:
+ #endif
+     case __NR_getdents64:
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_renderer_policy_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_renderer_policy_linux.cc
+index a85c0ea86..1f8d044a3 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_renderer_policy_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/bpf_renderer_policy_linux.cc
+@@ -68,7 +68,7 @@ ResultExpr RendererProcessPolicy::EvaluateSyscall(int sysno) const {
+     case __NR_ftruncate64:
+ #endif
+ #if defined(__i386__) || defined(__x86_64__) || defined(__mips__) || \
+-    defined(__aarch64__)
++    defined(__aarch64__) || defined(__loongarch64)
+     case __NR_getrlimit:
+     case __NR_setrlimit:
+ // We allow setrlimit to dynamically adjust the address space limit as
+diff --git a/src/3rdparty/chromium/services/service_manager/sandbox/linux/sandbox_seccomp_bpf_linux.cc b/src/3rdparty/chromium/services/service_manager/sandbox/linux/sandbox_seccomp_bpf_linux.cc
+index f5d096b10..ac6133da5 100644
+--- a/src/3rdparty/chromium/services/service_manager/sandbox/linux/sandbox_seccomp_bpf_linux.cc
++++ b/src/3rdparty/chromium/services/service_manager/sandbox/linux/sandbox_seccomp_bpf_linux.cc
+@@ -65,9 +65,9 @@ using sandbox::bpf_dsl::ResultExpr;
+ 
+ // Make sure that seccomp-bpf does not get disabled by mistake. Also make sure
+ // that we think twice about this when adding a new architecture.
+-#if !defined(ARCH_CPU_ARM64) && !defined(ARCH_CPU_MIPS64EL)
++#if !defined(ARCH_CPU_ARM64) && !defined(ARCH_CPU_MIPS64EL) && !defined(ARCH_CPU_LA64)
+ #error "Seccomp-bpf disabled on supported architecture!"
+-#endif  // !defined(ARCH_CPU_ARM64) && !defined(ARCH_CPU_MIPS64EL)
++#endif  // !defined(ARCH_CPU_ARM64) && !defined(ARCH_CPU_MIPS64EL) && !defined(ARCH_CPU_LA64)
+ 
+ #endif  // BUILDFLAG(USE_SECCOMP_BPF)
+ 
+diff --git a/src/3rdparty/chromium/skia/BUILD.gn b/src/3rdparty/chromium/skia/BUILD.gn
+index f5992c505..7a3bbcd78 100644
+--- a/src/3rdparty/chromium/skia/BUILD.gn
++++ b/src/3rdparty/chromium/skia/BUILD.gn
+@@ -796,6 +796,8 @@ skia_source_set("skia_opts") {
+     sources = skia_opts.none_sources
+   } else if (current_cpu == "s390x") {
+     sources = skia_opts.none_sources
++  } else if (current_cpu == "la64") {
++    sources = skia_opts.none_sources
+   } else {
+     assert(false, "Need to port cpu specific stuff from skia_library_opts.gyp")
+   }
+diff --git a/src/3rdparty/chromium/third_party/blink/renderer/core/editing/commands/delete_selection_command.cc b/src/3rdparty/chromium/third_party/blink/renderer/core/editing/commands/delete_selection_command.cc
+index 05b74b53f..1a56dda89 100644
+--- a/src/3rdparty/chromium/third_party/blink/renderer/core/editing/commands/delete_selection_command.cc
++++ b/src/3rdparty/chromium/third_party/blink/renderer/core/editing/commands/delete_selection_command.cc
+@@ -229,7 +229,7 @@ static Position TrailingWhitespacePosition(const Position& position,
+ // Workaround: GCC fails to resolve overloaded template functions, passed as
+ // parameters of EnclosingNodeType. But it works wrapping that in a utility
+ // function.
+-#if defined(COMPILER_GCC)
++#if defined(COMPILER_GCC) || !defined(__clang__)
+ static bool IsHTMLTableRowElement(const blink::Node* node) {
+   return IsA<HTMLTableRowElement>(node);
+ }
+@@ -263,7 +263,7 @@ void DeleteSelectionCommand::InitializePositionData(
+   start_root_ = RootEditableElementOf(start);
+   end_root_ = RootEditableElementOf(end);
+ 
+-#if defined(COMPILER_GCC)
++#if defined(COMPILER_GCC) || !defined(__clang__)
+   // Workaround. See declaration of IsHTMLTableRowElement
+   start_table_row_ = To<HTMLTableRowElement>(
+       EnclosingNodeOfType(start, &IsHTMLTableRowElement));
+diff --git a/src/3rdparty/chromium/third_party/blink/renderer/platform/heap/asm/BUILD.gn b/src/3rdparty/chromium/third_party/blink/renderer/platform/heap/asm/BUILD.gn
+index fe44daf27..9910244f5 100644
+--- a/src/3rdparty/chromium/third_party/blink/renderer/platform/heap/asm/BUILD.gn
++++ b/src/3rdparty/chromium/third_party/blink/renderer/platform/heap/asm/BUILD.gn
+@@ -36,6 +36,8 @@ if (current_cpu == "x86" || current_cpu == "x64") {
+       sources = [ "SaveRegisters_mips.S" ]
+     } else if (current_cpu == "mips64el") {
+       sources = [ "SaveRegisters_mips64.S" ]
++    } else if (current_cpu == "la64") {
++      sources = [ "SaveRegisters_la64.S" ]
+     } else if (current_cpu == "ppc64") {
+       sources = [ "SaveRegisters_ppc64.S" ]
+     }
+diff --git a/src/3rdparty/chromium/third_party/blink/renderer/platform/wtf/hash_table.h b/src/3rdparty/chromium/third_party/blink/renderer/platform/wtf/hash_table.h
+index eb10c6964..127a415a5 100644
+--- a/src/3rdparty/chromium/third_party/blink/renderer/platform/wtf/hash_table.h
++++ b/src/3rdparty/chromium/third_party/blink/renderer/platform/wtf/hash_table.h
+@@ -674,7 +674,12 @@ struct HashTableHelper {
+   }
+   static constexpr size_t constexpr_max(size_t a, size_t b) { return a > b ? a : b; }
+   static bool IsEmptyOrDeletedBucketSafe(const Value& value) {
++// TODO:LA64
++#if defined(ARCH_CPU_LA64)
++    char buf[sizeof(Key)];
++#else	  
+     alignas(constexpr_max(alignof(Key), sizeof(size_t))) char buf[sizeof(Key)];
++#endif
+     const Key& key = Extractor::ExtractSafe(value, &buf);
+     return IsEmptyBucket(key) || IsDeletedBucket(key);
+   }
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/client/crashpad_info_note.S b/src/3rdparty/chromium/third_party/crashpad/crashpad/client/crashpad_info_note.S
+index b13d8642e..d6fbc7eb0 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/client/crashpad_info_note.S
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/client/crashpad_info_note.S
+@@ -42,7 +42,7 @@ name_end:
+   .balign NOTE_ALIGN
+ desc:
+ #if defined(__LP64__)
+-  .quad CRASHPAD_INFO_SYMBOL - desc
++  .quad CRASHPAD_INFO_SYMBOL
+ #else
+   .long CRASHPAD_INFO_SYMBOL - desc
+ #endif  // __LP64__
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
+index a13407605..143c65426 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
+@@ -126,6 +126,8 @@ std::string MinidumpMiscInfoDebugBuildString() {
+   static constexpr char kCPU[] = "mips";
+ #elif defined(ARCH_CPU_MIPS64EL)
+   static constexpr char kCPU[] = "mips64";
++#elif defined(ARCH_CPU_LA64)
++  static constexpr char kCPU[] = "la64";
+ #else
+ #error define kCPU for this CPU
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/capture_memory.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/capture_memory.cc
+index a51626ccd..38986b4a4 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/capture_memory.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/capture_memory.cc
+@@ -107,7 +107,7 @@ void CaptureMemory::PointedToByContext(const CPUContext& context,
+       MaybeCaptureMemoryAround(delegate, context.arm->regs[i]);
+     }
+   }
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+   for (size_t i = 0; i < base::size(context.mipsel->regs); ++i) {
+     MaybeCaptureMemoryAround(delegate, context.mipsel->regs[i]);
+   }
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_architecture.h b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_architecture.h
+index 811a72095..b5284a72e 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_architecture.h
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_architecture.h
+@@ -43,7 +43,10 @@ enum CPUArchitecture {
+   kCPUArchitectureMIPSEL,
+ 
+   //! \brief 64-bit MIPSEL.
+-  kCPUArchitectureMIPS64EL
++  kCPUArchitectureMIPS64EL,
++
++  //! \brief 64-bit LoongArch.
++  kCPUArchitectureLA64
+ };
+ 
+ }  // namespace crashpad
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_context.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_context.cc
+index 6fb8d7e71..bda28212f 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_context.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/cpu_context.cc
+@@ -196,6 +196,7 @@ bool CPUContext::Is64Bit() const {
+     case kCPUArchitectureX86_64:
+     case kCPUArchitectureARM64:
+     case kCPUArchitectureMIPS64EL:
++    case kCPUArchitectureLA64:
+       return true;
+     case kCPUArchitectureX86:
+     case kCPUArchitectureARM:
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/crashpad_info_size_test_note.S b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/crashpad_info_size_test_note.S
+index 16b5d499d..9ccf51733 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/crashpad_info_size_test_note.S
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/crashpad_info_size_test_note.S
+@@ -43,7 +43,7 @@ name_end:
+   .balign NOTE_ALIGN
+ desc:
+ #if defined(__LP64__)
+-  .quad TEST_CRASHPAD_INFO_SYMBOL - desc
++  .quad TEST_CRASHPAD_INFO_SYMBOL
+ #else
+   .long TEST_CRASHPAD_INFO_SYMBOL - desc
+ #endif  // __LP64__
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/exception_snapshot_linux.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/exception_snapshot_linux.cc
+index cd40b3b12..af5e21b78 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/exception_snapshot_linux.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/exception_snapshot_linux.cc
+@@ -333,6 +333,8 @@ bool ExceptionSnapshotLinux::Initialize(ProcessReaderLinux* process_reader,
+ 
+   thread_id_ = thread_id;
+ 
++// TODO:LA
++#if !defined(ARCH_CPU_LA64)
+   if (process_reader->Is64Bit()) {
+     if (!ReadContext<ContextTraits64>(process_reader, context_address) ||
+         !ReadSiginfo<Traits64>(process_reader, siginfo_address)) {
+@@ -344,6 +346,7 @@ bool ExceptionSnapshotLinux::Initialize(ProcessReaderLinux* process_reader,
+       return false;
+     }
+   }
++#endif
+ 
+   INITIALIZATION_STATE_SET_VALID(initialized_);
+   return true;
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/process_reader_linux.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/process_reader_linux.cc
+index b96abfe74..3d6591fad 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/process_reader_linux.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/process_reader_linux.cc
+@@ -108,6 +108,8 @@ void ProcessReaderLinux::Thread::InitializeStack(ProcessReaderLinux* reader) {
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+   stack_pointer = reader->Is64Bit() ? thread_info.thread_context.t64.regs[29]
+                                     : thread_info.thread_context.t32.regs[29];
++#elif defined(ARCH_CPU_LA64)
++// TODO:LA
+ #else
+ #error Port.
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/signal_context.h b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/signal_context.h
+index 110024680..2fa76e984 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/signal_context.h
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/signal_context.h
+@@ -422,6 +422,7 @@ static_assert(offsetof(UContext<ContextTraits64>, mcontext.fpregs) ==
+               "context offset mismatch");
+ #endif
+ 
++#elif defined(ARCH_CPU_LA64)
+ #else
+ #error Port.
+ #endif  // ARCH_CPU_X86_FAMILY
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/system_snapshot_linux.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/system_snapshot_linux.cc
+index 8564d3d45..820b0eae0 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/system_snapshot_linux.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/system_snapshot_linux.cc
+@@ -203,6 +203,7 @@ CPUArchitecture SystemSnapshotLinux::GetCPUArchitecture() const {
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+   return process_reader_->Is64Bit() ? kCPUArchitectureMIPS64EL
+                                     : kCPUArchitectureMIPSEL;
++#elif defined(ARCH_CPU_LA64)
+ #else
+ #error port to your architecture
+ #endif
+@@ -218,6 +219,8 @@ uint32_t SystemSnapshotLinux::CPURevision() const {
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+   // Not implementable on MIPS
+   return 0;
++#elif defined(ARCH_CPU_LA64)
++  return 0;
+ #else
+ #error port to your architecture
+ #endif
+@@ -238,6 +241,8 @@ std::string SystemSnapshotLinux::CPUVendor() const {
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+   // Not implementable on MIPS
+   return std::string();
++#elif defined(ARCH_CPU_LA64)
++  return std::string();  
+ #else
+ #error port to your architecture
+ #endif
+@@ -371,6 +376,8 @@ bool SystemSnapshotLinux::NXEnabled() const {
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+   // Not implementable on MIPS
+   return false;
++#elif defined(ARCH_CPU_LA64)
++  return false;  
+ #else
+ #error Port.
+ #endif  // ARCH_CPU_X86_FAMILY
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.cc
+index e3e2bebdd..c96d5b633 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.cc
+@@ -186,6 +186,7 @@ bool ThreadSnapshotLinux::Initialize(ProcessReaderLinux* process_reader,
+         thread.thread_info.float_context.f32,
+         context_.mipsel);
+   }
++#elif defined(ARCH_CPU_LA64)  
+ #else
+ #error Port.
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.h b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.h
+index 44cc6f6d9..8d6665b9b 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.h
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/snapshot/linux/thread_snapshot_linux.h
+@@ -62,7 +62,7 @@ class ThreadSnapshotLinux final : public ThreadSnapshot {
+ #if defined(ARCH_CPU_X86_FAMILY)
+     CPUContextX86 x86;
+     CPUContextX86_64 x86_64;
+-#elif defined(ARCH_CPU_ARM_FAMILY)
++#elif defined(ARCH_CPU_ARM_FAMILY) || defined(ARCH_CPU_LA64)
+     CPUContextARM arm;
+     CPUContextARM64 arm64;
+ #elif defined(ARCH_CPU_MIPS_FAMILY)
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/ptracer.cc b/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/ptracer.cc
+index 557e0d363..cbf2b2be0 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/ptracer.cc
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/ptracer.cc
+@@ -273,7 +273,7 @@ bool GetThreadArea64(pid_t tid,
+   }
+   return true;
+ }
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+ // PTRACE_GETREGSET, introduced in Linux 2.6.34 (2225a122ae26), requires kernel
+ // support enabled by HAVE_ARCH_TRACEHOOK. This has been set for x86 (including
+ // x86_64) since Linux 2.6.28 (99bbc4b1e677a), but for MIPS only since
+@@ -296,7 +296,7 @@ bool GetGeneralPurposeRegistersLegacy(pid_t tid,
+ // ptrace unsupported on MIPS for kernels older than 3.13
+ #if defined(ARCH_CPU_MIPSEL)
+ #define THREAD_CONTEXT_FIELD t32
+-#elif defined(ARCH_CPU_MIPS64EL)
++#elif defined(ARCH_CPU_MIPS64EL) || defined(ARCH_CPU_LA64)
+ #define THREAD_CONTEXT_FIELD t64
+ #endif
+   for (size_t reg = 0; reg < 32; ++reg) {
+@@ -385,6 +385,9 @@ bool GetThreadArea64(pid_t tid,
+                      const ThreadContext& context,
+                      LinuxVMAddress* address,
+                      bool can_log) {
++// TODO:LA
++#if !defined(ARCH_CPU_LA64)
++	
+   void* result;
+ #if defined(ARCH_CPU_MIPSEL)
+   if (ptrace(PTRACE_GET_THREAD_AREA_3264, tid, nullptr, &result) != 0) {
+@@ -395,6 +398,7 @@ bool GetThreadArea64(pid_t tid,
+     return false;
+   }
+   *address = FromPointerCast<LinuxVMAddress>(result);
++#endif  
+   return true;
+ }
+ 
+diff --git a/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/thread_info.h b/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/thread_info.h
+index 5b55c24a7..489e350c4 100644
+--- a/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/thread_info.h
++++ b/src/3rdparty/chromium/third_party/crashpad/crashpad/util/linux/thread_info.h
+@@ -67,7 +67,7 @@ union ThreadContext {
+     uint32_t pc;
+     uint32_t cpsr;
+     uint32_t orig_r0;
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+     // Reflects output format of static int gpr32_get(), defined in
+     // arch/mips/kernel/ptrace.c in kernel source
+     uint32_t padding0_[6];
+@@ -122,7 +122,7 @@ union ThreadContext {
+     uint64_t sp;
+     uint64_t pc;
+     uint64_t pstate;
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+     // Reflects output format of static int gpr64_get(), defined in
+     // arch/mips/kernel/ptrace.c in kernel source
+     uint64_t regs[32];
+@@ -141,13 +141,13 @@ union ThreadContext {
+   using NativeThreadContext = user_regs_struct;
+ #elif defined(ARCH_CPU_ARMEL)
+   using NativeThreadContext = user_regs;
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+ // No appropriate NativeThreadsContext type available for MIPS
+ #else
+ #error Port.
+ #endif  // ARCH_CPU_X86_FAMILY || ARCH_CPU_ARM64
+ 
+-#if !defined(ARCH_CPU_MIPS_FAMILY)
++#if !defined(ARCH_CPU_MIPS_FAMILY) && !defined(ARCH_CPU_LA64)
+ #if defined(ARCH_CPU_32_BITS)
+   static_assert(sizeof(t32_t) == sizeof(NativeThreadContext), "Size mismatch");
+ #else  // ARCH_CPU_64_BITS
+@@ -209,7 +209,7 @@ union FloatContext {
+ 
+     bool have_fpregs;
+     bool have_vfp;
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+     // Reflects data format filled by ptrace_getfpregs() in
+     // arch/mips/kernel/ptrace.c
+     struct {
+@@ -246,7 +246,7 @@ union FloatContext {
+     uint32_t fpsr;
+     uint32_t fpcr;
+     uint8_t padding[8];
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+     // Reflects data format filled by ptrace_getfpregs() in
+     // arch/mips/kernel/ptrace.c
+     double fpregs[32];
+@@ -278,7 +278,7 @@ union FloatContext {
+ #endif
+ #elif defined(ARCH_CPU_ARM64)
+   static_assert(sizeof(f64) == sizeof(user_fpsimd_struct), "Size mismatch");
+-#elif defined(ARCH_CPU_MIPS_FAMILY)
++#elif defined(ARCH_CPU_MIPS_FAMILY) || defined(ARCH_CPU_LA64)
+ // No appropriate floating point context native type for available MIPS.
+ #else
+ #error Port.
+diff --git a/src/3rdparty/chromium/third_party/libvpx/BUILD.gn b/src/3rdparty/chromium/third_party/libvpx/BUILD.gn
+index 9b92313b4..75f0869ae 100644
+--- a/src/3rdparty/chromium/third_party/libvpx/BUILD.gn
++++ b/src/3rdparty/chromium/third_party/libvpx/BUILD.gn
+@@ -326,6 +326,8 @@ static_library("bundled_libvpx") {
+     }
+   } else if (current_cpu == "mipsel" || current_cpu == "mips64el") {
+     sources = libvpx_srcs_mips
++  } else if (current_cpu == "la64") {
++    sources = libvpx_srcs_generic
+   } else if (current_cpu == "arm") {
+     if (is_chromeos) {
+       sources = libvpx_srcs_arm_neon_highbd
+diff --git a/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/basictypes.h b/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/basictypes.h
+index 3bf59f4e5..8e723831d 100644
+--- a/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/basictypes.h
++++ b/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/basictypes.h
+@@ -379,6 +379,8 @@ class AssignAttributeStartEnd {
+     // some ARMs have shorter cache lines (ARM1176JZF-S is 32 bytes for example) but obviously 64-byte aligned implies 32-byte aligned
+ # elif (defined(__mips__))
+ #   define CACHELINE_ALIGNED __attribute__((aligned(128)))
++# elif (defined(__loongarch64))
++#   define CACHELINE_ALIGNED __attribute__((aligned(128)))  
+ # elif (defined(__aarch64__))
+ #   define CACHELINE_ALIGNED __attribute__((aligned(64)))
+     // implementation specific, Cortex-A53 and 57 should have 64 bytes
+diff --git a/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/spinlock_linux-inl.h b/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/spinlock_linux-inl.h
+index ece8477b9..c4a4ab715 100644
+--- a/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/spinlock_linux-inl.h
++++ b/src/3rdparty/chromium/third_party/tcmalloc/chromium/src/base/spinlock_linux-inl.h
+@@ -41,6 +41,7 @@
+ #define FUTEX_WAIT 0
+ #define FUTEX_WAKE 1
+ #define FUTEX_PRIVATE_FLAG 128
++#define __NR_futex 98
+ 
+ // Note: Instead of making direct system calls that are inlined, we rely
+ //       on the syscall() function in glibc to do the right thing. This
+diff --git a/src/3rdparty/chromium/ui/base/x/BUILD.gn b/src/3rdparty/chromium/ui/base/x/BUILD.gn
+index 782f009dd..6941d79df 100644
+--- a/src/3rdparty/chromium/ui/base/x/BUILD.gn
++++ b/src/3rdparty/chromium/ui/base/x/BUILD.gn
+@@ -57,6 +57,8 @@ component("x") {
+     "//build/config/linux:xrandr",
+   ]
+ 
++  cflags = ["-fpermissive", ]
++
+   defines = [ "IS_UI_BASE_X_IMPL" ]
+ 
+   deps = [
+diff --git a/src/3rdparty/chromium/ui/gl/BUILD.gn b/src/3rdparty/chromium/ui/gl/BUILD.gn
+index adc9c08b0..e3fbeb64b 100644
+--- a/src/3rdparty/chromium/ui/gl/BUILD.gn
++++ b/src/3rdparty/chromium/ui/gl/BUILD.gn
+@@ -33,6 +33,7 @@ buildflag_header("buildflags") {
+ 
+ config("gl_config") {
+   defines = []
++  cflags = []
+   if (use_glx) {
+     defines += [
+       "GL_GLEXT_PROTOTYPES",
+@@ -42,6 +43,8 @@ config("gl_config") {
+   if (use_egl) {
+     defines += [ "USE_EGL" ]
+   }
++
++  cflags += [ "-fpermissive", ]
+ }
+ 
+ jumbo_component("gl") {
+diff --git a/src/3rdparty/chromium/ui/views/layout/layout_types.h b/src/3rdparty/chromium/ui/views/layout/layout_types.h
+index b349e6382..35142a562 100644
+--- a/src/3rdparty/chromium/ui/views/layout/layout_types.h
++++ b/src/3rdparty/chromium/ui/views/layout/layout_types.h
+@@ -46,10 +46,10 @@ class VIEWS_EXPORT SizeBounds {
+   ~SizeBounds() = default;
+ 
+   constexpr const base::Optional<int>& width() const { return width_; }
+-  void set_width(base::Optional<int> width) { width_ = std::move(width); }
++  void set_width(base::Optional<int> width) { width_ = width; }
+ 
+   constexpr const base::Optional<int>& height() const { return height_; }
+-  void set_height(base::Optional<int> height) { height_ = std::move(height); }
++  void set_height(base::Optional<int> height) { height_ = height; }
+ 
+   constexpr bool is_fully_bounded() const { return width_ && height_; }
+ 
+diff --git a/src/3rdparty/chromium/media/media_options.gni b/src/3rdparty/chromium/media/media_options.gni
+index b349e6382..35142a562 100644
+--- a/src/3rdparty/chromium/media/media_options.gni
++++ b/src/3rdparty/chromium/media/media_options.gni
+@@ -93,7 +93,7 @@ class VIEWS_EXPORT SizeBounds {
+   # are combined and we could override more logging than expected.
+   enable_logging_override = !use_jumbo_build && is_chromecast
+ 
+-  enable_dav1d_decoder = !is_android && !is_ios && target_cpu != "mips64el" && target_cpu != "mipsel"
++  enable_dav1d_decoder = !is_android && !is_ios && target_cpu != "mips64el" && target_cpu != "mipsel" && target_cpu != "la64"
+ 
+   # Enable browser managed persistent metadata storage for EME persistent
+   # session and persistent usage record session.
+-- 
+2.20.1
+

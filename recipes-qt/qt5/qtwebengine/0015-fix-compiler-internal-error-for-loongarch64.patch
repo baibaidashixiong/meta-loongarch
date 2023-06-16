@@ -1,0 +1,25 @@
+From 7608c4395dd82a74ec833f43927f9fd442c19b4f Mon Sep 17 00:00:00 2001
+From: loongson <loongson@loongson-pc>
+Date: Fri, 14 May 2021 16:37:20 +0800
+Subject: [PATCH] fix compiler internal error for loongarch64
+
+---
+ .../third_party/skia/third_party/skcms/src/Transform_inl.h      | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/3rdparty/chromium/third_party/skia/third_party/skcms/src/Transform_inl.h b/src/3rdparty/chromium/third_party/skia/third_party/skcms/src/Transform_inl.h
+index c4b3122..80b3a28 100644
+--- a/src/3rdparty/chromium/third_party/skia/third_party/skcms/src/Transform_inl.h
++++ b/src/3rdparty/chromium/third_party/skia/third_party/skcms/src/Transform_inl.h
+@@ -685,7 +685,7 @@ SI void sample_clut_16(const skcms_A2B* a2b, I32 ix, F* r, F* g, F* b) {
+ // GCC 7.2.0 hits an internal compiler error with -finline-functions (or -O3)
+ // when targeting MIPS 64, i386, or s390x,  I think attempting to inline clut() into exec_ops().
+ #if 1 && defined(__GNUC__) && !defined(__clang__) \
+-      && (defined(__mips64) || defined(__i386) || defined(__s390x__))
++      && (defined(__mips64) || defined(__loongarch64) || defined(__i386) || defined(__s390x__))
+     #define MAYBE_NOINLINE __attribute__((noinline))
+ #else
+     #define MAYBE_NOINLINE
+-- 
+2.20.1
+

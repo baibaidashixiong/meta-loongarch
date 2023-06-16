@@ -1,0 +1,193 @@
+From d58954b4d1e1d1c9fcd7696ce033b045d2f532ab Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Wed, 13 Jan 2021 11:55:03 +0000
+Subject: [PATCH 13/13] make qtwebengine can be compiled for loongarch64
+
+---
+ configure.pri                                 |  3 +-
+ mkspecs/features/functions.prf                |  1 +
+ src/3rdparty/chromium/DEPS                    | 28 +++++++++----------
+ .../swiftshader/src/Reactor/BUILD.gn          |  4 +--
+ src/3rdparty/gn/tools/gn/args.cc              |  3 ++
+ src/3rdparty/gn/tools/gn/variables.cc         |  1 +
+ src/3rdparty/gn/util/build_config.h           | 12 ++++++++
+ src/buildtools/config/linux.pri               |  5 ++++
+ 8 files changed, 40 insertions(+), 17 deletions(-)
+
+diff --git a/configure.pri b/configure.pri
+index d3ba9b147..ded9bdbf0 100644
+--- a/configure.pri
++++ b/configure.pri
+@@ -142,7 +142,8 @@ defineTest(qtConfTest_detectPlatform) {
+ defineTest(qtConfTest_detectArch) {
+     contains(QT_ARCH, "i386")|contains(QT_ARCH, "x86_64"): return(true)
+     contains(QT_ARCH, "arm")|contains(QT_ARCH, "arm64"): return(true)
+-    contains(QT_ARCH, "mips"): return(true)
++    contains(QT_ARCH, "mips")|contains(QT_ARCH, "mips64"): return(true)
++    contains(QT_ARCH, "loongarch")|contains(QT_ARCH, "loongarch64"): return(true)
+     qtLog("Architecture not supported.")
+     return(false)
+ }
+diff --git a/mkspecs/features/functions.prf b/mkspecs/features/functions.prf
+index d3ceb4c5e..674b97fa4 100644
+--- a/mkspecs/features/functions.prf
++++ b/mkspecs/features/functions.prf
+@@ -106,6 +106,7 @@ defineReplace(gnArch) {
+     contains(qtArch, "arm64"): return(arm64)
+     contains(qtArch, "mips"): return(mipsel)
+     contains(qtArch, "mips64"): return(mips64el)
++    contains(qtArch, "loongarch64"): return(la64)
+     return(unknown)
+ }
+ 
+diff --git a/src/3rdparty/chromium/DEPS b/src/3rdparty/chromium/DEPS
+index 517526264..09d10d143 100644
+--- a/src/3rdparty/chromium/DEPS
++++ b/src/3rdparty/chromium/DEPS
+@@ -85,7 +85,7 @@ vars = {
+ 
+   # Check out and download nacl by default. This can be disabled e.g. with
+   # custom_vars.
+-  'checkout_nacl': False,
++  'checkout_nacl': true,
+ 
+   # By default, do not check out src-internal. This can be overridden e.g. with
+   # custom_vars.
+@@ -3582,19 +3582,19 @@ hooks = [
+         'src/tools',
+     ],
+   },
+-#  {
+-#    # Verify that we have the right GN binary and force-install it if we
+-#    # don't, in order to work around crbug.com/944367.
+-#    # TODO(crbug.com/944667) Get rid of this when cipd is ensuring we
+-#    # have the right binary more carefully and we no longer need this.
+-#    'name': 'ensure_gn_version',
+-#    'pattern': '.',
+-#    'action': [
+-#      'python',
+-#      'src/buildtools/ensure_gn_version.py',
+-#      Var('gn_version')
+-#    ],
+-#  },
++  {
++    # Verify that we have the right GN binary and force-install it if we
++    # don't, in order to work around crbug.com/944367.
++    # TODO(crbug.com/944667) Get rid of this when cipd is ensuring we
++    # have the right binary more carefully and we no longer need this.
++    'name': 'ensure_gn_version',
++    'pattern': '.',
++    'action': [
++      'python',
++      'src/buildtools/ensure_gn_version.py',
++      Var('gn_version')
++    ],
++  },
+   {
+     # This downloads binaries for Native Client's newlib toolchain.
+     # Done in lieu of building the toolchain from scratch as it can take
+diff --git a/src/3rdparty/chromium/third_party/swiftshader/src/Reactor/BUILD.gn b/src/3rdparty/chromium/third_party/swiftshader/src/Reactor/BUILD.gn
+index 7d0e33cc2..403d53aaa 100644
+--- a/src/3rdparty/chromium/third_party/swiftshader/src/Reactor/BUILD.gn
++++ b/src/3rdparty/chromium/third_party/swiftshader/src/Reactor/BUILD.gn
+@@ -18,8 +18,8 @@ declare_args() {
+   # Subzero produces smaller binaries, but doesn't support ARM64, MIPS64, and
+   # PPC64.
+   use_swiftshader_with_subzero =
+-      current_cpu != "arm64" && current_cpu != "mips64el" && current_cpu != "ppc64" && current_cpu != "la64"
+-  supports_llvm = is_linux || is_fuchsia || is_win || is_android || is_mac
++      current_cpu != "arm64" && current_cpu != "mips64el" && current_cpu != "ppc64"
++  supports_llvm = (is_linux || is_fuchsia || is_win || is_android || is_mac) && current_cpu != "la64"
+ }
+ 
+ config("swiftshader_reactor_private_config") {
+diff --git a/src/3rdparty/gn/tools/gn/args.cc b/src/3rdparty/gn/tools/gn/args.cc
+index 802c3731d..748f1ff3e 100644
+--- a/src/3rdparty/gn/tools/gn/args.cc
++++ b/src/3rdparty/gn/tools/gn/args.cc
+@@ -327,6 +327,7 @@ void Args::SetSystemVarsLocked(Scope* dest) const {
+   static const char kArm64[] = "arm64";
+   static const char kMips[] = "mipsel";
+   static const char kMips64[] = "mips64el";
++  static const char kLa64[] = "la64";
+   static const char kS390X[] = "s390x";
+   static const char kPPC64[] = "ppc64";
+   const char* arch = nullptr;
+@@ -346,6 +347,8 @@ void Args::SetSystemVarsLocked(Scope* dest) const {
+     arch = kMips;
+   else if (os_arch == "mips64")
+     arch = kMips64;
++  else if (os_arch == "loongarch64")
++    arch = kLa64;
+   else if (os_arch == "s390x")
+     arch = kS390X;
+   else if (os_arch == "ppc64" || os_arch == "ppc64le")
+diff --git a/src/3rdparty/gn/tools/gn/variables.cc b/src/3rdparty/gn/tools/gn/variables.cc
+index ff6d45cb6..771d7b04c 100644
+--- a/src/3rdparty/gn/tools/gn/variables.cc
++++ b/src/3rdparty/gn/tools/gn/variables.cc
+@@ -111,6 +111,7 @@ Possible values
+   - "arm"
+   - "arm64"
+   - "mipsel"
++  - "la64"
+ )";
+ 
+ const char kTargetName[] = "target_name";
+diff --git a/src/3rdparty/gn/util/build_config.h b/src/3rdparty/gn/util/build_config.h
+index addd7cfb0..14c0dab42 100644
+--- a/src/3rdparty/gn/util/build_config.h
++++ b/src/3rdparty/gn/util/build_config.h
+@@ -172,6 +172,18 @@
+ #define ARCH_CPU_32_BITS 1
+ #define ARCH_CPU_BIG_ENDIAN 1
+ #endif
++#elif defined(__loongarch__)
++#if defined(__LP64__)
++#define ARCH_CPU_LOONGARCH_FAMILY 1
++#define ARCH_CPU_LA64 1
++#define ARCH_CPU_64_BITS 1
++#define ARCH_CPU_LITTLE_ENDIAN 1
++#else
++#define ARCH_CPU_LOONGARCH_FAMILY 1
++#define ARCH_CPU_LA 1
++#define ARCH_CPU_32_BITS 1
++#define ARCH_CPU_LITTLE_ENDIAN 1
++#endif
+ #else
+ #error Please add support for your architecture in build_config.h
+ #endif
+diff --git a/src/buildtools/config/linux.pri b/src/buildtools/config/linux.pri
+index 56c18bdb5..d48ceec2b 100644
+--- a/src/buildtools/config/linux.pri
++++ b/src/buildtools/config/linux.pri
+@@ -116,18 +116,26 @@ contains(QT_ARCH, "mips") {
+         equals(MARCH, "mips32r6"): gn_args += mips_arch_variant=\"r6\"
+         else: equals(MARCH, "mips32r2"): gn_args += mips_arch_variant=\"r2\"
+         else: equals(MARCH, "mips32"): gn_args += mips_arch_variant=\"r1\"
++        else: gn_args += mips_arch_variant=\"loongson3a\"
+     } else {
+         contains(QMAKE_CFLAGS, "mips32r6"): gn_args += mips_arch_variant=\"r6\"
+         else: contains(QMAKE_CFLAGS, "mips32r2"): gn_args += mips_arch_variant=\"r2\"
+         else: contains(QMAKE_CFLAGS, "mips32"): gn_args += mips_arch_variant=\"r1\"
++        else: gn_args += mips_arch_variant=\"loongson3a\"
+     }
+
+     contains(QMAKE_CFLAGS, "-mmsa"): gn_args += mips_use_msa=true
+
+     contains(QMAKE_CFLAGS, "-mdsp2"): gn_args += mips_dsp_rev=2
+     else: contains(QMAKE_CFLAGS, "-mdsp"): gn_args += mips_dsp_rev=1
++    DEFINES += _MIPS_ARCH_LOONGSON3A
+ }
+ 
++contains(QT_ARCH, "loongarch64") {
++    DEFINES += ARCH_CPU_LA64 
++    gn_args += debug_devtools=false
++}
++
+ host_build {
+     gn_args += custom_toolchain=\"$$QTWEBENGINE_OUT_ROOT/src/toolchain:host\"
+     GN_HOST_CPU = $$gnArch($$QT_ARCH)
+-- 
+2.20.1
+

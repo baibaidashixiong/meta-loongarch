@@ -1,0 +1,25 @@
+From 0fc5b2512a913c9bb702e69262efc4bd72615598 Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Wed, 13 Jan 2021 07:57:17 +0000
+Subject: [PATCH 07/13] port icu for loongarch64
+
+---
+ .../third_party/icu/source/i18n/double-conversion-utils.h       | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/3rdparty/chromium/third_party/icu/source/i18n/double-conversion-utils.h b/src/3rdparty/chromium/third_party/icu/source/i18n/double-conversion-utils.h
+index c5439ca15..ed6fb5463 100644
+--- a/src/3rdparty/chromium/third_party/icu/source/i18n/double-conversion-utils.h
++++ b/src/3rdparty/chromium/third_party/icu/source/i18n/double-conversion-utils.h
+@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
+ #if defined(_M_X64) || defined(__x86_64__) || \
+     defined(__ARMEL__) || defined(__avr32__) || defined(_M_ARM) || defined(_M_ARM64) || \
+     defined(__hppa__) || defined(__ia64__) || \
+-    defined(__mips__) || \
++    defined(__mips__) || defined(__loongarch__) || \
+     defined(__powerpc__) || defined(__ppc__) || defined(__ppc64__) || \
+     defined(_POWER) || defined(_ARCH_PPC) || defined(_ARCH_PPC64) || \
+     defined(__sparc__) || defined(__sparc) || defined(__s390__) || \
+-- 
+2.20.1
+

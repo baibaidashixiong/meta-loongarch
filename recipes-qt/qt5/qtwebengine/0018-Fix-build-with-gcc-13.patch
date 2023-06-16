@@ -1,0 +1,260 @@
+From e9fb74addfad5e46fa6b3b88dc8702a648435379 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Mon, 22 May 2023 11:40:03 +0000
+Subject: [PATCH] Fix build with gcc-13
+
+---
+ src/3rdparty/chromium/base/debug/profiler.h                    | 1 +
+ src/3rdparty/chromium/build/config/compiler/BUILD.gn           | 3 ---
+ .../content/public/browser/browsing_data_remover_delegate.h    | 1 +
+ .../chromium/device/base/synchronization/one_writer_seqlock.cc | 1 +
+ .../chromium/device/bluetooth/public/cpp/bluetooth_uuid.h      | 1 +
+ .../chromium/gpu/command_buffer/common/webgpu_cmd_enums.h      | 1 +
+ src/3rdparty/chromium/gpu/config/device_perf_info.h            | 1 +
+ src/3rdparty/chromium/gpu/config/gpu_feature_info.h            | 1 +
+ src/3rdparty/chromium/gpu/config/gpu_preferences.h             | 1 +
+ .../abseil-cpp/absl/strings/internal/str_format/extension.h    | 1 +
+ .../chromium/third_party/angle/include/GLSLANG/ShaderVars.h    | 1 +
+ .../chromium/third_party/angle/src/common/angleutils.h         | 1 +
+ .../breakpad/src/client/linux/handler/minidump_descriptor.h    | 1 +
+ .../third_party/perfetto/include/perfetto/ext/base/uuid.h      | 1 +
+ src/3rdparty/chromium/third_party/webrtc/call/rtp_demuxer.h    | 1 +
+ .../third_party/webrtc/rtc_base/third_party/base64/base64.h    | 1 +
+ src/3rdparty/chromium/v8/src/base/logging.h                    | 1 +
+ src/3rdparty/chromium/v8/src/base/macros.h                     | 1 +
+ src/3rdparty/chromium/v8/src/inspector/v8-string-conversions.h | 1 +
+ 19 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/src/3rdparty/chromium/base/debug/profiler.h b/src/3rdparty/chromium/base/debug/profiler.h
+index 1229e0623..5f15e2aa1 100644
+--- a/src/3rdparty/chromium/base/debug/profiler.h
++++ b/src/3rdparty/chromium/base/debug/profiler.h
+@@ -7,6 +7,7 @@
+ 
+ #include <stddef.h>
+ 
++#include <cstdint>
+ #include <string>
+ 
+ #include "base/base_export.h"
+diff --git a/src/3rdparty/chromium/build/config/compiler/BUILD.gn b/src/3rdparty/chromium/build/config/compiler/BUILD.gn
+index f1e232d39..ca81bd8ce 100644
+--- a/src/3rdparty/chromium/build/config/compiler/BUILD.gn
++++ b/src/3rdparty/chromium/build/config/compiler/BUILD.gn
+@@ -242,9 +242,6 @@ config("default_include_dirs") {
+ config("compiler") {
+   asmflags = []
+   cflags = []
+-  if (current_cpu == "la64") {
+-    cflags = ["-mcmodel=large"]
+-  }
+   cflags_c = []
+   cflags_cc = []
+   cflags_objc = []
+diff --git a/src/3rdparty/chromium/content/public/browser/browsing_data_remover_delegate.h b/src/3rdparty/chromium/content/public/browser/browsing_data_remover_delegate.h
+index 4774cb1b0..74911db61 100644
+--- a/src/3rdparty/chromium/content/public/browser/browsing_data_remover_delegate.h
++++ b/src/3rdparty/chromium/content/public/browser/browsing_data_remover_delegate.h
+@@ -5,6 +5,7 @@
+ #ifndef CONTENT_PUBLIC_BROWSER_BROWSING_DATA_REMOVER_DELEGATE_H_
+ #define CONTENT_PUBLIC_BROWSER_BROWSING_DATA_REMOVER_DELEGATE_H_
+ 
++#include <cstdint>
+ #include "base/callback_forward.h"
+ 
+ namespace base {
+diff --git a/src/3rdparty/chromium/device/base/synchronization/one_writer_seqlock.cc b/src/3rdparty/chromium/device/base/synchronization/one_writer_seqlock.cc
+index b3b8a71f8..e07516f6f 100644
+--- a/src/3rdparty/chromium/device/base/synchronization/one_writer_seqlock.cc
++++ b/src/3rdparty/chromium/device/base/synchronization/one_writer_seqlock.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "device/base/synchronization/one_writer_seqlock.h"
++#include <cstdint>
+ 
+ namespace device {
+ 
+diff --git a/src/3rdparty/chromium/device/bluetooth/public/cpp/bluetooth_uuid.h b/src/3rdparty/chromium/device/bluetooth/public/cpp/bluetooth_uuid.h
+index 0c27ae710..b64f82f75 100644
+--- a/src/3rdparty/chromium/device/bluetooth/public/cpp/bluetooth_uuid.h
++++ b/src/3rdparty/chromium/device/bluetooth/public/cpp/bluetooth_uuid.h
+@@ -5,6 +5,7 @@
+ #ifndef DEVICE_BLUETOOTH_PUBLIC_CPP_BLUETOOTH_UUID_H_
+ #define DEVICE_BLUETOOTH_PUBLIC_CPP_BLUETOOTH_UUID_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/gpu/command_buffer/common/webgpu_cmd_enums.h b/src/3rdparty/chromium/gpu/command_buffer/common/webgpu_cmd_enums.h
+index 83615b30c..384a4c4f0 100644
+--- a/src/3rdparty/chromium/gpu/command_buffer/common/webgpu_cmd_enums.h
++++ b/src/3rdparty/chromium/gpu/command_buffer/common/webgpu_cmd_enums.h
+@@ -5,6 +5,7 @@
+ #ifndef GPU_COMMAND_BUFFER_COMMON_WEBGPU_CMD_ENUMS_H_
+ #define GPU_COMMAND_BUFFER_COMMON_WEBGPU_CMD_ENUMS_H_
+ 
++#include <cstdint>
+ namespace gpu {
+ namespace webgpu {
+ 
+diff --git a/src/3rdparty/chromium/gpu/config/device_perf_info.h b/src/3rdparty/chromium/gpu/config/device_perf_info.h
+index 10cdaac47..5c2dec30a 100644
+--- a/src/3rdparty/chromium/gpu/config/device_perf_info.h
++++ b/src/3rdparty/chromium/gpu/config/device_perf_info.h
+@@ -5,6 +5,7 @@
+ #ifndef GPU_CONFIG_DEVICE_PERF_INFO_H_
+ #define GPU_CONFIG_DEVICE_PERF_INFO_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/gpu/config/gpu_feature_info.h b/src/3rdparty/chromium/gpu/config/gpu_feature_info.h
+index 9748fa5dc..a90d99755 100644
+--- a/src/3rdparty/chromium/gpu/config/gpu_feature_info.h
++++ b/src/3rdparty/chromium/gpu/config/gpu_feature_info.h
+@@ -5,6 +5,7 @@
+ #ifndef GPU_CONFIG_GPU_FEATURE_INFO_H_
+ #define GPU_CONFIG_GPU_FEATURE_INFO_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/gpu/config/gpu_preferences.h b/src/3rdparty/chromium/gpu/config/gpu_preferences.h
+index b14f8e421..48ccadbc2 100644
+--- a/src/3rdparty/chromium/gpu/config/gpu_preferences.h
++++ b/src/3rdparty/chromium/gpu/config/gpu_preferences.h
+@@ -6,6 +6,7 @@
+ #define GPU_CONFIG_GPU_PREFERENCES_H_
+ 
+ #include <stddef.h>
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h b/src/3rdparty/chromium/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h
+index bae2c0784..4414cc130 100644
+--- a/src/3rdparty/chromium/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h
++++ b/src/3rdparty/chromium/third_party/abseil-cpp/absl/strings/internal/str_format/extension.h
+@@ -19,6 +19,7 @@
+ #include <limits.h>
+ 
+ #include <cstddef>
++#include <cstdint>
+ #include <cstring>
+ #include <ostream>
+ 
+diff --git a/src/3rdparty/chromium/third_party/angle/include/GLSLANG/ShaderVars.h b/src/3rdparty/chromium/third_party/angle/include/GLSLANG/ShaderVars.h
+index 52f6ad077..5d2d14683 100644
+--- a/src/3rdparty/chromium/third_party/angle/include/GLSLANG/ShaderVars.h
++++ b/src/3rdparty/chromium/third_party/angle/include/GLSLANG/ShaderVars.h
+@@ -12,6 +12,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/third_party/angle/src/common/angleutils.h b/src/3rdparty/chromium/third_party/angle/src/common/angleutils.h
+index fb73524c3..30b87122c 100644
+--- a/src/3rdparty/chromium/third_party/angle/src/common/angleutils.h
++++ b/src/3rdparty/chromium/third_party/angle/src/common/angleutils.h
+@@ -14,6 +14,7 @@
+ #include <climits>
+ #include <cstdarg>
+ #include <cstddef>
++#include <cstdint>
+ #include <set>
+ #include <sstream>
+ #include <string>
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h
+index c7e4f2b37..e491a1f68 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/minidump_descriptor.h
+@@ -33,6 +33,7 @@
+ #include <assert.h>
+ #include <sys/types.h>
+ 
++#include <cstdint>
+ #include <string>
+ 
+ #include "client/linux/handler/microdump_extra_info.h"
+diff --git a/src/3rdparty/chromium/third_party/perfetto/include/perfetto/ext/base/uuid.h b/src/3rdparty/chromium/third_party/perfetto/include/perfetto/ext/base/uuid.h
+index 1b4c53815..472042fab 100644
+--- a/src/3rdparty/chromium/third_party/perfetto/include/perfetto/ext/base/uuid.h
++++ b/src/3rdparty/chromium/third_party/perfetto/include/perfetto/ext/base/uuid.h
+@@ -18,6 +18,7 @@
+ #define INCLUDE_PERFETTO_EXT_BASE_UUID_H_
+ 
+ #include <array>
++#include <cstdint>
+ #include <string>
+ 
+ #include "perfetto/ext/base/optional.h"
+diff --git a/src/3rdparty/chromium/third_party/webrtc/call/rtp_demuxer.h b/src/3rdparty/chromium/third_party/webrtc/call/rtp_demuxer.h
+index c815c47f7..34a179461 100644
+--- a/src/3rdparty/chromium/third_party/webrtc/call/rtp_demuxer.h
++++ b/src/3rdparty/chromium/third_party/webrtc/call/rtp_demuxer.h
+@@ -11,6 +11,7 @@
+ #ifndef CALL_RTP_DEMUXER_H_
+ #define CALL_RTP_DEMUXER_H_
+ 
++#include <cstdint>
+ #include <map>
+ #include <set>
+ #include <string>
+diff --git a/src/3rdparty/chromium/third_party/webrtc/rtc_base/third_party/base64/base64.h b/src/3rdparty/chromium/third_party/webrtc/rtc_base/third_party/base64/base64.h
+index 7a936f23e..21951a1d2 100644
+--- a/src/3rdparty/chromium/third_party/webrtc/rtc_base/third_party/base64/base64.h
++++ b/src/3rdparty/chromium/third_party/webrtc/rtc_base/third_party/base64/base64.h
+@@ -12,6 +12,7 @@
+ #ifndef RTC_BASE_THIRD_PARTY_BASE64_BASE64_H_
+ #define RTC_BASE_THIRD_PARTY_BASE64_BASE64_H_
+ 
++#include <cstdint>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/src/3rdparty/chromium/v8/src/base/logging.h b/src/3rdparty/chromium/v8/src/base/logging.h
+index 790018c98..87ac7e347 100644
+--- a/src/3rdparty/chromium/v8/src/base/logging.h
++++ b/src/3rdparty/chromium/v8/src/base/logging.h
+@@ -5,6 +5,7 @@
+ #ifndef V8_BASE_LOGGING_H_
+ #define V8_BASE_LOGGING_H_
+ 
++#include <cstdint>
+ #include <cstring>
+ #include <sstream>
+ #include <string>
+diff --git a/src/3rdparty/chromium/v8/src/base/macros.h b/src/3rdparty/chromium/v8/src/base/macros.h
+index e22dd0089..2a400a1f5 100644
+--- a/src/3rdparty/chromium/v8/src/base/macros.h
++++ b/src/3rdparty/chromium/v8/src/base/macros.h
+@@ -5,6 +5,7 @@
+ #ifndef V8_BASE_MACROS_H_
+ #define V8_BASE_MACROS_H_
+ 
++#include <cstdint>
+ #include <limits>
+ #include <type_traits>
+ 
+diff --git a/src/3rdparty/chromium/v8/src/inspector/v8-string-conversions.h b/src/3rdparty/chromium/v8/src/inspector/v8-string-conversions.h
+index c1d69c18f..eb33c6816 100644
+--- a/src/3rdparty/chromium/v8/src/inspector/v8-string-conversions.h
++++ b/src/3rdparty/chromium/v8/src/inspector/v8-string-conversions.h
+@@ -5,6 +5,7 @@
+ #ifndef V8_INSPECTOR_V8_STRING_CONVERSIONS_H_
+ #define V8_INSPECTOR_V8_STRING_CONVERSIONS_H_
+ 
++#include <cstdint>
+ #include <string>
+ 
+ // Conversion routines between UT8 and UTF16, used by string-16.{h,cc}. You may
+-- 
+2.30.2
+

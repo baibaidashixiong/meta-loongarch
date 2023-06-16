@@ -1,0 +1,50 @@
+From 640154b0851eb00d8cd708021b10b9f5a097c6e0 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Tue, 16 May 2023 07:55:05 +0000
+Subject: [PATCH] port-qtbase-for-loongarch
+
+---
+ src/corelib/global/archdetect.cpp        |  4 ++++
+ src/corelib/global/qprocessordetection.h | 11 +++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/src/corelib/global/archdetect.cpp b/src/corelib/global/archdetect.cpp
+index 1d00b7f5..31605369 100644
+--- a/src/corelib/global/archdetect.cpp
++++ b/src/corelib/global/archdetect.cpp
+@@ -63,6 +63,10 @@
+ #  define ARCH_PROCESSOR "mips64"
+ #elif defined(Q_PROCESSOR_MIPS)
+ #  define ARCH_PROCESSOR "mips"
++#elif defined(Q_PROCESSOR_LOONGARCH_64)
++#  define ARCH_PROCESSOR "loongarch64"
++#elif defined(Q_PROCESSOR_LOONGARCH)
++#  define ARCH_PROCESSOR "loongarch"
+ #elif defined(Q_PROCESSOR_POWER_32)
+ #  define ARCH_PROCESSOR "power"
+ #elif defined(Q_PROCESSOR_POWER_64)
+diff --git a/src/corelib/global/qprocessordetection.h b/src/corelib/global/qprocessordetection.h
+index 8d657208..71acb6c2 100644
+--- a/src/corelib/global/qprocessordetection.h
++++ b/src/corelib/global/qprocessordetection.h
+@@ -223,6 +223,17 @@
+ #  define Q_PROCESSOR_WORDSIZE   8
+ // Q_BYTE_ORDER not defined, use endianness auto-detection
+ 
++/*
++    LOONGARCH family, known revisions: I, II, III, IV, 32, 64
++
++    LOONGARCH is little-endian, use endianness auto-detection implemented below.
++*/
++#elif defined(_loongarch) || defined(__loongarch__) 
++#  define Q_PROCESSOR_LOONGARCH
++#  if defined(__loongarch64)
++#    define Q_PROCESSOR_LOONGARCH_64
++#    define Q_PROCESSOR_WORDSIZE 8
++#  endif
+ /*
+     MIPS family, known revisions: I, II, III, IV, 32, 64
+ 
+-- 
+2.30.2
+

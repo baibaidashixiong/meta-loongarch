@@ -1,0 +1,19 @@
+Description: reduce code range size on mipsel
+ This fixes OOM error when running mksnapshot.
+Author: Dmitry Shachnev <mitya57@debian.org>
+Forwarded: no
+Last-Update: 2020-09-28
+
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/v8/src/common/globals.h
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/v8/src/common/globals.h
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/v8/src/common/globals.h
+@@ -224,7 +224,7 @@ constexpr size_t kMinimumCodeRangeSize =
+ constexpr size_t kMinExpectedOSPageSize = 64 * KB;  // OS page on PPC Linux
+ #elif V8_TARGET_ARCH_MIPS
+ constexpr bool kPlatformRequiresCodeRange = false;
+-constexpr size_t kMaximalCodeRangeSize = 2048LL * MB;
++constexpr size_t kMaximalCodeRangeSize = 1024LL * MB;
+ constexpr size_t kMinimumCodeRangeSize = 0 * MB;
+ constexpr size_t kMinExpectedOSPageSize = 4 * KB;  // OS page.
+ #else

@@ -1,0 +1,21 @@
+Description: unbundle yasm using the unbundling script
+Author: Kevin Kofler
+Origin: Fedora, https://src.fedoraproject.org/rpms/qt5-qtwebengine/blob/master/f/qtwebengine-everywhere-src-5.10.0-linux-pri.patch
+Forwarded: not-needed
+Reviewed-by: Sandro Knauß <hefee@debian.org>
+Last-Update: 2020-03-02
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/buildtools/config/linux.pri
++++ b/src/buildtools/config/linux.pri
+@@ -176,3 +176,10 @@ host_build {
+     }
+     gn_args += use_glib=false
+ }
++
++# run the unbundling script Chromium provides
++CHROMIUM_SRC_DIR = "$$QTWEBENGINE_ROOT/$$getChromiumSrcDir()"
++R_G_F_PY = "$$CHROMIUM_SRC_DIR/build/linux/unbundle/replace_gn_files.py"
++R_G_F_PY_ARGS = "--system-libraries yasm"
++log("Running python2 $$R_G_F_PY $$R_G_F_PY_ARGS$${EOL}")
++!system("python2 $$R_G_F_PY $$R_G_F_PY_ARGS"): error("-- unbundling failed")

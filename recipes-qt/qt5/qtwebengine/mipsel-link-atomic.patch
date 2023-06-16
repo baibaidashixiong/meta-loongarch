@@ -1,0 +1,26 @@
+Description: add -latomic to dependencies of base component on mipsel
+ This is needed to fix build of qwebengine_convert_dict, which uses the
+ generated convert_dict.pri to get the list of libraries.
+ .
+ qmake adds its own -latomic, but it comes before the list of static
+ libraries, so it does not help. We need -latomic after that list.
+ .
+ The error was:
+ .
+ /usr/bin/ld.bfd: <<BUILDDIR>>/src/core/release/obj/base/base/base_jumbo_17.o: undefined reference to symbol '__atomic_load_8@@LIBATOMIC_1.0'
+ /usr/bin/ld.bfd: /usr/lib/gcc/mipsel-linux-gnu/9/libatomic.so: error adding symbols: DSO missing from command line
+Author: Dmitry Shachnev <mitya57@debian.org>
+Forwarded: no
+Last-Update: 2020-03-20
+
+--- a/src/3rdparty/chromium/base/BUILD.gn
++++ b/src/3rdparty/chromium/base/BUILD.gn
+@@ -1325,7 +1325,7 @@ jumbo_component("base") {
+   # Needed for <atomic> if using newer C++ library than sysroot, except if
+   # building inside the cros_sdk environment - use host_toolchain as a
+   # more robust check for this.
+-  if (!use_sysroot && (is_android || (is_linux && !is_chromecast && !use_qt)) &&
++  if (!use_sysroot && (is_android || (is_linux && !is_chromecast && !use_qt) || current_cpu == "mipsel") &&
+       host_toolchain != "//build/toolchain/cros:host") {
+     libs += [ "atomic" ]
+   }

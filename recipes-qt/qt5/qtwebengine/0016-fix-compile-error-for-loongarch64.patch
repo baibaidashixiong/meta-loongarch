@@ -1,0 +1,54 @@
+Description: <short summary of the patch>
+ TODO: Put a short summary on the line above and replace this paragraph
+ with a longer explanation of this change. Complete the meta-information
+ with other relevant fields (see below for details). To make it easier, the
+ information below has been extracted from the changelog. Adjust it or drop
+ it.
+ .
+ qtwebengine-opensource-src (5.15.2+dfsg-lnd.3) unstable; urgency=medium
+ .
+   * Fix some error because update tools.
+Author: Jianjun Han <hanjianjun@loongson.cn>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: https://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: 2022-02-28
+
+--- qtwebengine-opensource-src-5.15.2+dfsg.orig/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h
++++ qtwebengine-opensource-src-5.15.2+dfsg/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h
+@@ -2826,7 +2826,7 @@ struct kernel_statfs {
+     #define LSS_BODY(type,name,args...)                                       \
+           register int64_t __res_a0 __asm__("a0");                            \
+           int64_t __res;                                                      \
+-          __asm__ __volatile__ ("li $a7, %1\n"                                \
++          __asm__ __volatile__ ("li.w $a7, %1\n"                                \
+                                 "syscall 0x0\n"                               \
+                                 : "=r"(__res_a0)                              \
+                                 : "i"(__NR_##name) , ## args                  \
+@@ -2906,7 +2906,7 @@ struct kernel_statfs {
+                               *               %a3 = newtls,
+                               *               %a4 = child_tidptr)
+                               */
+-                             "li     a7, %8\n"
++                             "li.w     a7, %8\n"
+                              "syscall    0x0\n"
+ 
+                              /* if (%a0 != 0)
+@@ -2923,7 +2923,7 @@ struct kernel_statfs {
+ 
+                              /* Call _exit(%a0).
+                               */
+-                             "li     $a7, %9\n"
++                             "li.w     $a7, %9\n"
+                              "syscall    0x0\n"
+                            "1:\n"
+                              : "=r" (__res)

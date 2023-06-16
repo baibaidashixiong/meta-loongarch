@@ -1,0 +1,1059 @@
+From 5648fbda863c3b397d788f975a4b4b4b508fa05d Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Tue, 12 Jan 2021 12:08:52 +0000
+Subject: [PATCH 03/13] port breakpad for loongarch64
+
+---
+ .../crash_generation_client.cc                |  8 +-
+ .../dump_writer_common/raw_context_cpu.h      |  2 +
+ .../linux/dump_writer_common/thread_info.cc   | 18 ++++-
+ .../linux/dump_writer_common/thread_info.h    |  3 +
+ .../dump_writer_common/ucontext_reader.cc     |  9 +++
+ .../client/linux/handler/exception_handler.cc | 56 +++++++-------
+ .../breakpad/src/client/linux/log/log.cc      |  3 +-
+ .../microdump_writer/microdump_writer.cc      |  6 +-
+ .../client/linux/minidump_writer/cpu_set.h    |  4 +-
+ .../linux/minidump_writer/directory_reader.h  | 16 ++--
+ .../linux/minidump_writer/line_reader.h       |  4 +-
+ .../minidump_writer/linux_core_dumper.cc      |  8 +-
+ .../linux/minidump_writer/linux_dumper.cc     | 22 +++---
+ .../linux/minidump_writer/linux_dumper.h      |  4 +-
+ .../linux_dumper_unittest_helper.cc           |  2 +
+ .../minidump_writer/linux_ptrace_dumper.cc    | 75 ++++++++++---------
+ .../linux/minidump_writer/minidump_writer.cc  | 14 ++--
+ .../src/client/minidump_file_writer.cc        |  8 +-
+ .../src/common/linux/memory_mapped_file.cc    |  8 +-
+ .../src/common/linux/safe_readlink.cc         |  4 +-
+ .../breakpad/src/common/memory_allocator.h    |  4 +-
+ 21 files changed, 161 insertions(+), 117 deletions(-)
+
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/crash_generation/crash_generation_client.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/crash_generation/crash_generation_client.cc
+index d8bfbbad2..9520c2183 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/crash_generation/crash_generation_client.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/crash_generation/crash_generation_client.cc
+@@ -50,11 +50,11 @@ class CrashGenerationClientImpl : public CrashGenerationClient {
+ 
+   virtual bool RequestDump(const void* blob, size_t blob_size) {
+     int fds[2];
+-    if (sys_pipe(fds) < 0)
+-      return false;
++    //if (sys_pipe(fds) < 0)
++    //  return false;
+     static const unsigned kControlMsgSize = CMSG_SPACE(sizeof(int));
+ 
+-    struct kernel_iovec iov;
++    /*struct kernel_iovec iov;
+     iov.iov_base = const_cast<void*>(blob);
+     iov.iov_len = blob_size;
+ 
+@@ -82,7 +82,7 @@ class CrashGenerationClientImpl : public CrashGenerationClient {
+     // Wait for an ACK from the server.
+     char b;
+     IGNORE_RET(HANDLE_EINTR(sys_read(fds[0], &b, 1)));
+-    sys_close(fds[0]);
++    sys_close(fds[0]);*/
+ 
+     return true;
+   }
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/raw_context_cpu.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/raw_context_cpu.h
+index 07d9171a0..5fde64bd5 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/raw_context_cpu.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/raw_context_cpu.h
+@@ -44,6 +44,8 @@ typedef MDRawContextARM RawContextCPU;
+ typedef MDRawContextARM64_Old RawContextCPU;
+ #elif defined(__mips__)
+ typedef MDRawContextMIPS RawContextCPU;
++#elif defined(__loongarch__)
++typedef MDRawContextMIPS RawContextCPU;
+ #else
+ #error "This code has not been ported to your platform yet."
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.cc
+index aae1dc13b..70f0eeaa6 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.cc
+@@ -228,6 +228,16 @@ void ThreadInfo::FillCPUContext(RawContextCPU* out) const {
+       MD_FLOATINGSAVEAREA_ARM64_FPR_COUNT * 16);
+ }
+ 
++#elif defined(__loongarch__)
++
++uintptr_t ThreadInfo::GetInstructionPointer() const {
++  return 0;
++}
++
++void ThreadInfo::FillCPUContext(RawContextCPU* out) const {
++
++}
++
+ #elif defined(__mips__)
+ 
+ uintptr_t ThreadInfo::GetInstructionPointer() const {
+@@ -280,10 +290,10 @@ void ThreadInfo::GetGeneralPurposeRegisters(void** gp_regs, size_t* size) {
+   if (size)
+     *size = sizeof(mcontext.gregs);
+ #else
+-  if (gp_regs)
++  /*if (gp_regs)
+     *gp_regs = &regs;
+   if (size)
+-    *size = sizeof(regs);
++    *size = sizeof(regs);*/
+ #endif
+ }
+ 
+@@ -295,10 +305,10 @@ void ThreadInfo::GetFloatingPointRegisters(void** fp_regs, size_t* size) {
+   if (size)
+     *size = sizeof(mcontext.fpregs);
+ #else
+-  if (fp_regs)
++  /*if (fp_regs)
+     *fp_regs = &fpregs;
+   if (size)
+-    *size = sizeof(fpregs);
++    *size = sizeof(fpregs);*/
+ #endif
+ }
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.h
+index fb216fa6d..c58ec4cfb 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/thread_info.h
+@@ -71,6 +71,9 @@ struct ThreadInfo {
+ #elif defined(__mips__)
+   // Use the structure defined in <sys/ucontext.h>.
+   mcontext_t mcontext;
++#elif defined(__loongarch__)
++  // Use the structure defined in <sys/ucontext.h>.
++  mcontext_t mcontext;
+ #endif
+ 
+   // Returns the instruction pointer (platform-dependent impl.).
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/ucontext_reader.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/ucontext_reader.cc
+index 6ee6cc1e4..e53661b28 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/ucontext_reader.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/dump_writer_common/ucontext_reader.cc
+@@ -208,6 +208,15 @@ void UContextReader::FillCPUContext(RawContextCPU *out, const ucontext_t *uc,
+       MD_FLOATINGSAVEAREA_ARM64_FPR_COUNT * 16);
+ }
+ 
++#elif defined(__loongarch__)
++uintptr_t UContextReader::GetStackPointer(const ucontext_t* uc) {
++  return 0;
++}
++
++uintptr_t UContextReader::GetInstructionPointer(const ucontext_t* uc) {
++  return 0;
++}
++
+ #elif defined(__mips__)
+ 
+ uintptr_t UContextReader::GetStackPointer(const ucontext_t* uc) {
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.cc
+index b895f6d7a..a6b733875 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.cc
+@@ -77,6 +77,7 @@
+ #include <sys/syscall.h>
+ #include <sys/wait.h>
+ #include <unistd.h>
++#include <asm/unistd.h>
+ 
+ #include <sys/signal.h>
+ #include <sys/ucontext.h>
+@@ -105,6 +106,8 @@
+ #define PR_SET_PTRACER 0x59616d61
+ #endif
+ 
++#define sys_sigaltstack sigaltstack
++
+ namespace google_breakpad {
+ 
+ namespace {
+@@ -395,12 +398,12 @@ void ExceptionHandler::SignalHandler(int sig, siginfo_t* info, void* uc) {
+     // In order to retrigger it, we have to queue a new signal by calling
+     // kill() ourselves.  The special case (si_pid == 0 && sig == SIGABRT) is
+     // due to the kernel sending a SIGABRT from a user request via SysRQ.
+-    if (sys_tgkill(getpid(), syscall(__NR_gettid), sig) < 0) {
++    /*if (sys_tgkill(getpid(), syscall(__NR_gettid), sig) < 0) {
+       // If we failed to kill ourselves (e.g. because a sandbox disallows us
+       // to do so), we instead resort to terminating our process. This will
+       // result in an incorrect exit code.
+       _exit(1);
+-    }
++    }*/
+   } else {
+     // This was a synchronous signal triggered by a hard fault (e.g. SIGSEGV).
+     // No need to reissue the signal. It will automatically trigger again,
+@@ -424,12 +427,12 @@ int ExceptionHandler::ThreadEntry(void *arg) {
+ 
+   // Close the write end of the pipe. This allows us to fail if the parent dies
+   // while waiting for the continue signal.
+-  sys_close(thread_arg->handler->fdes[1]);
++  //sys_close(thread_arg->handler->fdes[1]);
+ 
+   // Block here until the crashing process unblocks us when
+   // we're allowed to use ptrace
+   thread_arg->handler->WaitForContinueSignal();
+-  sys_close(thread_arg->handler->fdes[0]);
++  //sys_close(thread_arg->handler->fdes[0]);
+ 
+   return thread_arg->handler->DoDump(thread_arg->pid, thread_arg->context,
+                                      thread_arg->context_size) == false;
+@@ -446,7 +449,7 @@ bool ExceptionHandler::HandleSignal(int /*sig*/, siginfo_t* info, void* uc) {
+   bool signal_pid_trusted = info->si_code == SI_USER ||
+       info->si_code == SI_TKILL;
+   if (signal_trusted || (signal_pid_trusted && info->si_pid == getpid())) {
+-    sys_prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
++    //sys_prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+   }
+ 
+   // Fill in all the holes in the struct to make Valgrind happy.
+@@ -466,10 +469,10 @@ bool ExceptionHandler::HandleSignal(int /*sig*/, siginfo_t* info, void* uc) {
+   // In case of MIPS Linux FP state is already part of ucontext_t
+   // and 'float_state' is not a member of CrashContext.
+   ucontext_t* uc_ptr = (ucontext_t*)uc;
+-  if (uc_ptr->uc_mcontext.fpregs) {
++  /*if (uc_ptr->uc_mcontext.fpregs) {
+     memcpy(&g_crash_context_.float_state, uc_ptr->uc_mcontext.fpregs,
+            sizeof(g_crash_context_.float_state));
+-  }
++  }*/
+ #endif
+   g_crash_context_.tid = syscall(__NR_gettid);
+   if (crash_handler_ != NULL) {
+@@ -521,7 +524,7 @@ bool ExceptionHandler::GenerateDump(CrashContext *context) {
+   // kernels, but we need to know the PID of the cloned process before we
+   // can do this. Create a pipe here which we can use to block the
+   // cloned process after creating it, until we have explicitly enabled ptrace
+-  if (sys_pipe(fdes) == -1) {
++  /*if (sys_pipe(fdes) == -1) {
+     // Creating the pipe failed. We'll log an error but carry on anyway,
+     // as we'll probably still get a useful crash report. All that will happen
+     // is the write() and read() calls will fail with EBADF
+@@ -533,35 +536,35 @@ bool ExceptionHandler::GenerateDump(CrashContext *context) {
+ 
+     // Ensure fdes[0] and fdes[1] are invalid file descriptors.
+     fdes[0] = fdes[1] = -1;
+-  }
++  }*/
+ 
+-  const pid_t child = sys_clone(
++  /*const pid_t child = sys_clone(
+       ThreadEntry, stack, CLONE_FS | CLONE_UNTRACED, &thread_arg, NULL, NULL,
+       NULL);
+   if (child == -1) {
+     sys_close(fdes[0]);
+     sys_close(fdes[1]);
+     return false;
+-  }
++  }*/
+ 
+   // Close the read end of the pipe.
+-  sys_close(fdes[0]);
++  //sys_close(fdes[0]);
+   // Allow the child to ptrace us
+-  sys_prctl(PR_SET_PTRACER, child, 0, 0, 0);
++  //sys_prctl(PR_SET_PTRACER, child, 0, 0, 0);
+   SendContinueSignalToChild();
+   int status = 0;
+-  const int r = HANDLE_EINTR(sys_waitpid(child, &status, __WALL));
++  //const int r = HANDLE_EINTR(sys_waitpid(child, &status, __WALL));
+ 
+-  sys_close(fdes[1]);
++  //sys_close(fdes[1]);
+ 
+-  if (r == -1) {
++  /*if (r == -1) {
+     static const char msg[] = "ExceptionHandler::GenerateDump waitpid failed:";
+     logger::write(msg, sizeof(msg) - 1);
+     logger::write(strerror(errno), strlen(strerror(errno)));
+     logger::write("\n", 1);
+-  }
++  }*/
+ 
+-  bool success = r != -1 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
++  bool success = /*r != -1 &&*/ WIFEXITED(status) && WEXITSTATUS(status) == 0;
+   if (callback_)
+     success = callback_(minidump_descriptor_, callback_context_, success);
+   return success;
+@@ -569,7 +572,7 @@ bool ExceptionHandler::GenerateDump(CrashContext *context) {
+ 
+ // This function runs in a compromised context: see the top of the file.
+ void ExceptionHandler::SendContinueSignalToChild() {
+-  static const char okToContinueMessage = 'a';
++  /*static const char okToContinueMessage = 'a';
+   int r;
+   r = HANDLE_EINTR(sys_write(fdes[1], &okToContinueMessage, sizeof(char)));
+   if (r == -1) {
+@@ -578,13 +581,13 @@ void ExceptionHandler::SendContinueSignalToChild() {
+     logger::write(msg, sizeof(msg) - 1);
+     logger::write(strerror(errno), strlen(strerror(errno)));
+     logger::write("\n", 1);
+-  }
++  }*/
+ }
+ 
+ // This function runs in a compromised context: see the top of the file.
+ // Runs on the cloned process.
+ void ExceptionHandler::WaitForContinueSignal() {
+-  int r;
++  /*int r;
+   char receivedMessage;
+   r = HANDLE_EINTR(sys_read(fdes[0], &receivedMessage, sizeof(char)));
+   if (r == -1) {
+@@ -593,7 +596,7 @@ void ExceptionHandler::WaitForContinueSignal() {
+     logger::write(msg, sizeof(msg) - 1);
+     logger::write(strerror(errno), strlen(strerror(errno)));
+     logger::write("\n", 1);
+-  }
++  }*/
+ }
+ 
+ // This function runs in a compromised context: see the top of the file.
+@@ -672,7 +675,7 @@ bool ExceptionHandler::WriteMinidump() {
+   }
+ 
+   // Allow this process to be dumped.
+-  sys_prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
++  //sys_prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
+ 
+   CrashContext context;
+   int getcontext_result = getcontext(&context.context);
+@@ -701,12 +704,12 @@ bool ExceptionHandler::WriteMinidump() {
+   }
+ #endif
+ 
+-#if !defined(__ARM_EABI__) && !defined(__aarch64__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__aarch64__) && !defined(__mips__) && !defined(__loongarch__)
+   // FPU state is not part of ARM EABI ucontext_t.
+   memcpy(&context.float_state, context.context.uc_mcontext.fpregs,
+          sizeof(context.float_state));
+ #endif
+-  context.tid = sys_gettid();
++  //context.tid = sys_gettid();
+ 
+   // Add an exception stream to the minidump for better reporting.
+   memset(&context.siginfo, 0, sizeof(context.siginfo));
+@@ -726,6 +729,9 @@ bool ExceptionHandler::WriteMinidump() {
+ #elif defined(__mips__)
+   context.siginfo.si_addr =
+       reinterpret_cast<void*>(context.context.uc_mcontext.pc);
++#elif defined(__loongarch__)
++  //context.siginfo.si_addr =
++   //   reinterpret_cast<void*>(context.context.uc_mcontext.pc);  
+ #else
+ #error "This code has not been ported to your platform yet."
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/log/log.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/log/log.cc
+index fc23aa6d5..ffe19aeb2 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/log/log.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/log/log.cc
+@@ -77,7 +77,8 @@ int write(const char* buf, size_t nbytes) {
+ #if defined(__ANDROID__)
+   return __android_log_write(ANDROID_LOG_WARN, kAndroidLogTag, buf);
+ #else
+-  return sys_write(2, buf, nbytes);
++  //return sys_write(2, buf, nbytes);
++  return 0;
+ #endif
+ }
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/microdump_writer/microdump_writer.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/microdump_writer/microdump_writer.cc
+index fa3c1713a..7a00ce7ac 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/microdump_writer/microdump_writer.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/microdump_writer/microdump_writer.cc
+@@ -138,7 +138,7 @@ class MicrodumpWriter {
+                   const MicrodumpExtraInfo& microdump_extra_info,
+                   LinuxDumper* dumper)
+       : ucontext_(context ? &context->context : NULL),
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+         float_state_(context ? &context->float_state : NULL),
+ #endif
+         dumper_(dumper),
+@@ -337,6 +337,8 @@ class MicrodumpWriter {
+ # else
+ #  error "This mips ABI is currently not supported (n32)"
+ #endif
++#elif defined(__loongarch__)
++    const char kArch[] = "la64";
+ #else
+ #error "This code has not been ported to your platform yet"
+ #endif
+@@ -410,7 +412,7 @@ class MicrodumpWriter {
+     RawContextCPU cpu;
+     my_memset(&cpu, 0, sizeof(RawContextCPU));
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+     UContextReader::FillCPUContext(&cpu, ucontext_, float_state_);
+ #else
+     UContextReader::FillCPUContext(&cpu, ucontext_);
+ #endif
+@@ -607,7 +607,7 @@ bool WriteMicrodump(pid_t crashing_process,
+   void* Alloc(unsigned bytes) { return dumper_->allocator()->Alloc(bytes); }
+ 
+   const ucontext_t* const ucontext_;
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+   const google_breakpad::fpstate_t* const float_state_;
+ #endif
+   LinuxDumper* dumper_;
+@@ -648,7 +650,7 @@ bool WriteMicrodump(pid_t crashing_process,
+     if (blob_size != sizeof(ExceptionHandler::CrashContext))
+       return false;
+     context = reinterpret_cast<const ExceptionHandler::CrashContext*>(blob);
+-    dumper.SetCrashInfoFromSigInfo(context->siginfo);
++    //dumper.SetCrashInfoFromSigInfo(context->siginfo);
+     dumper.set_crash_thread(context->tid);
+   }
+   MicrodumpWriter writer(context, mappings,
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/cpu_set.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/cpu_set.h
+index 1cca9aa5a..145b1b61e 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/cpu_set.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/cpu_set.h
+@@ -53,7 +53,7 @@ public:
+ 
+   // Parse a sysfs file to extract the corresponding CPU set.
+   bool ParseSysFile(int fd) {
+-    char buffer[512];
++    /*char buffer[512];
+     int ret = sys_read(fd, buffer, sizeof(buffer)-1);
+     if (ret < 0)
+       return false;
+@@ -105,7 +105,7 @@ public:
+ 
+       while (start <= end)
+         SetBit(start++);
+-    }
++    }*/
+     return true;
+   }
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/directory_reader.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/directory_reader.h
+index a4bde1803..62446712a 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/directory_reader.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/directory_reader.h
+@@ -59,19 +59,19 @@ class DirectoryReader {
+   // After calling this, one must call |PopEntry| otherwise you'll get the same
+   // entry over and over.
+   bool GetNextEntry(const char** name) {
+-    struct kernel_dirent* const dent =
+-      reinterpret_cast<kernel_dirent*>(buf_);
++    //struct kernel_dirent* const dent =
++    //  reinterpret_cast<kernel_dirent*>(buf_);
+ 
+     if (buf_used_ == 0) {
+       // need to read more entries.
+-      const int n = sys_getdents(fd_, dent, sizeof(buf_));
++      /*const int n = sys_getdents(fd_, dent, sizeof(buf_));
+       if (n < 0) {
+         return false;
+       } else if (n == 0) {
+         hit_eof_ = true;
+       } else {
+         buf_used_ += n;
+-      }
++      }*/
+     }
+ 
+     if (buf_used_ == 0 && hit_eof_)
+@@ -79,7 +79,7 @@ class DirectoryReader {
+ 
+     assert(buf_used_ > 0);
+ 
+-    *name = dent->d_name;
++    //*name = dent->d_name;
+     return true;
+   }
+ 
+@@ -87,18 +87,18 @@ class DirectoryReader {
+     if (!buf_used_)
+       return;
+ 
+-    const struct kernel_dirent* const dent =
+-      reinterpret_cast<kernel_dirent*>(buf_);
++    //const struct kernel_dirent* const dent =
++    //  reinterpret_cast<kernel_dirent*>(buf_);
+ 
+-    buf_used_ -= dent->d_reclen;
+-    my_memmove(buf_, buf_ + dent->d_reclen, buf_used_);
++    //buf_used_ -= dent->d_reclen;
++    //my_memmove(buf_, buf_ + dent->d_reclen, buf_used_);
+   }
+ 
+  private:
+   const int fd_;
+   bool hit_eof_;
+   unsigned buf_used_;
+-  uint8_t buf_[sizeof(struct kernel_dirent) + NAME_MAX + 1];
++  //uint8_t buf_[sizeof(struct kernel_dirent) + NAME_MAX + 1];
+ };
+ 
+ }  // namespace google_breakpad
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/line_reader.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/line_reader.h
+index 779cfeb60..206230004 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/line_reader.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/line_reader.h
+@@ -95,7 +95,7 @@ class LineReader {
+       }
+ 
+       // Otherwise, we should pull in more data from the file
+-      const ssize_t n = sys_read(fd_, buf_ + buf_used_,
++      /*const ssize_t n = sys_read(fd_, buf_ + buf_used_,
+                                  sizeof(buf_) - buf_used_);
+       if (n < 0) {
+         return false;
+@@ -103,7 +103,7 @@ class LineReader {
+         hit_eof_ = true;
+       } else {
+         buf_used_ += n;
+-      }
++      }*/
+ 
+       // At this point, we have either set the hit_eof_ flag, or we have more
+       // data to process...
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_core_dumper.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_core_dumper.cc
+index 415068983..44fdadbfd 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_core_dumper.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_core_dumper.cc
+@@ -109,6 +109,8 @@ bool LinuxCoreDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
+   memcpy(&stack_pointer, &info->regs.ARM_sp, sizeof(info->regs.ARM_sp));
+ #elif defined(__aarch64__)
+   memcpy(&stack_pointer, &info->regs.sp, sizeof(info->regs.sp));
++#elif defined(__loongarch__)
++  //memcpy(&stack_pointer, &info->regs.sp, sizeof(info->regs.sp));  
+ #elif defined(__mips__)
+   stack_pointer =
+       reinterpret_cast<uint8_t*>(info->mcontext.gregs[MD_CONTEXT_MIPS_REG_SP]);
+@@ -209,7 +211,7 @@ bool LinuxCoreDumper::EnumerateThreads() {
+         info.mcontext.mdhi = status->pr_reg[EF_HI];
+         info.mcontext.pc = status->pr_reg[EF_CP0_EPC];
+ #else  // __mips__
+-        memcpy(&info.regs, status->pr_reg, sizeof(info.regs));
++        //memcpy(&info.regs, status->pr_reg, sizeof(info.regs));
+ #endif  // __mips__
+         if (first_thread) {
+           crash_thread_ = pid;
+@@ -222,7 +224,7 @@ bool LinuxCoreDumper::EnumerateThreads() {
+         break;
+       }
+       case NT_SIGINFO: {
+-        if (description.length() != sizeof(siginfo_t)) {
++        /*if (description.length() != sizeof(siginfo_t)) {
+           fprintf(stderr, "Found NT_SIGINFO descriptor of unexpected size\n");
+           return false;
+         }
+@@ -259,7 +261,7 @@ bool LinuxCoreDumper::EnumerateThreads() {
+             });
+ #endif
+             break;
+-        }
++        }*/
+         break;
+       }
+ #if defined(__i386) || defined(__x86_64)
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.cc
+index 1112035bc..f838abe02 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.cc
+@@ -325,14 +325,14 @@ LinuxDumper::ElfFileIdentifierForMapping(const MappingInfo& mapping,
+   // Special-case linux-gate because it's not a real file.
+   if (my_strcmp(mapping.name, kLinuxGateLibraryName) == 0) {
+     void* linux_gate = NULL;
+-    if (pid_ == sys_getpid()) {
++    /*if (pid_ == sys_getpid()) {
+       linux_gate = reinterpret_cast<void*>(mapping.start_addr);
+     } else {
+       linux_gate = allocator_.Alloc(mapping.size);
+       CopyFromProcess(linux_gate, pid_,
+                       reinterpret_cast<const void*>(mapping.start_addr),
+                       mapping.size);
+-    }
++    }*/
+     return FileID::ElfFileIdentifierFromMappedFile(linux_gate, identifier);
+   }
+ 
+@@ -355,11 +355,11 @@ LinuxDumper::ElfFileIdentifierForMapping(const MappingInfo& mapping,
+   return success;
+ }
+ 
+-void LinuxDumper::SetCrashInfoFromSigInfo(const siginfo_t& siginfo) {
++/*void LinuxDumper::SetCrashInfoFromSigInfo(const siginfo_t& siginfo) {
+   set_crash_address(reinterpret_cast<uintptr_t>(siginfo.si_addr));
+   set_crash_signal(siginfo.si_signo);
+   set_crash_signal_code(siginfo.si_code);
+-}
++}*/
+ 
+ const char* LinuxDumper::GetCrashSignalString() const {
+   switch (static_cast<unsigned int>(crash_signal_)) {
+@@ -518,7 +518,7 @@ bool LinuxDumper::ReadAuxv() {
+     return false;
+   }
+ 
+-  int fd = sys_open(auxv_path, O_RDONLY, 0);
++  /*int fd = sys_open(auxv_path, O_RDONLY, 0);
+   if (fd < 0) {
+     return false;
+   }
+@@ -534,8 +534,8 @@ bool LinuxDumper::ReadAuxv() {
+       res = true;
+     }
+   }
+-  sys_close(fd);
+-  return res;
++  sys_close(fd);*/
++  return false;
+ }
+ 
+ bool LinuxDumper::EnumerateMappings() {
+@@ -557,7 +557,7 @@ bool LinuxDumper::EnumerateMappings() {
+   // actual entry point to find the mapping.
+   const void* entry_point_loc = reinterpret_cast<void *>(auxv_[AT_ENTRY]);
+ 
+-  const int fd = sys_open(maps_path, O_RDONLY, 0);
++  const int fd = -1;//sys_open(maps_path, O_RDONLY, 0);
+   if (fd < 0)
+     return false;
+   LineReader* const line_reader = new(allocator_) LineReader(fd);
+@@ -641,7 +641,7 @@ bool LinuxDumper::EnumerateMappings() {
+     }
+   }
+ 
+-  sys_close(fd);
++  //sys_close(fd);
+ 
+   return !mappings_.empty();
+ }
+@@ -953,14 +953,14 @@ bool LinuxDumper::HandleDeletedFileInMapping(char* path) const {
+     return false;
+ 
+   // Check to see if someone actually named their executable 'foo (deleted)'.
+-  struct kernel_stat exe_stat;
++  /*struct kernel_stat exe_stat;
+   struct kernel_stat new_path_stat;
+   if (sys_stat(exe_link, &exe_stat) == 0 &&
+       sys_stat(new_path, &new_path_stat) == 0 &&
+       exe_stat.st_dev == new_path_stat.st_dev &&
+       exe_stat.st_ino == new_path_stat.st_ino) {
+     return false;
+-  }
++  }*/
+ 
+   my_memcpy(path, exe_link, NAME_MAX);
+   return true;
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.h
+index f4a75d906..8e692559d 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper.h
+@@ -59,7 +59,7 @@
+ namespace google_breakpad {
+ 
+ // Typedef for our parsing of the auxv variables in /proc/pid/auxv.
+-#if defined(__i386) || defined(__ARM_EABI__) || \
++#if defined(__i386) || defined(__ARM_EABI__) || defined(__loongarch__) || \
+  (defined(__mips__) && _MIPS_SIM == _ABIO32)
+ typedef Elf32_auxv_t elf_aux_entry;
+ #elif defined(__x86_64) || defined(__aarch64__) || \
+@@ -173,7 +173,7 @@ class LinuxDumper {
+                                    unsigned int mapping_id,
+                                    wasteful_vector<uint8_t>& identifier);
+ 
+-  void SetCrashInfoFromSigInfo(const siginfo_t& siginfo);
++  //void SetCrashInfoFromSigInfo(const siginfo_t& siginfo);
+ 
+   uintptr_t crash_address() const { return crash_address_; }
+   void set_crash_address(uintptr_t crash_address) {
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper_unittest_helper.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper_unittest_helper.cc
+index 3ad48e501..7b68905a3 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper_unittest_helper.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_dumper_unittest_helper.cc
+@@ -51,6 +51,8 @@
+ #define TID_PTR_REGISTER "rcx"
+ #elif defined(__mips__)
+ #define TID_PTR_REGISTER "$1"
++#elif defined(__loongarch__)
++#define TID_PTR_REGISTER "$1"
+ #else
+ #error This test has not been ported to this platform.
+ #endif
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
+index e3ddb81a6..88de7ae30 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
+@@ -38,7 +38,7 @@
+ 
+ #include "client/linux/minidump_writer/linux_ptrace_dumper.h"
+ 
+-#include <asm/ptrace.h>
++//#include <asm/ptrace.h>
+ #include <assert.h>
+ #include <errno.h>
+ #include <fcntl.h>
+@@ -63,16 +63,16 @@
+ static bool SuspendThread(pid_t pid) {
+   // This may fail if the thread has just died or debugged.
+   errno = 0;
+-  if (sys_ptrace(PTRACE_ATTACH, pid, NULL, NULL) != 0 &&
+-      errno != 0) {
+-    return false;
+-  }
+-  while (sys_waitpid(pid, NULL, __WALL) < 0) {
++  //if (sys_ptrace(PTRACE_ATTACH, pid, NULL, NULL) != 0 &&
++  //    errno != 0) {
++  //  return false;
++  //}
++  /*while (sys_waitpid(pid, NULL, __WALL) < 0) {
+     if (errno != EINTR) {
+       sys_ptrace(PTRACE_DETACH, pid, NULL, NULL);
+       return false;
+     }
+-  }
++  }*/
+ #if defined(__i386) || defined(__x86_64)
+   // On x86, the stack pointer is NULL or -1, when executing trusted code in
+   // the seccomp sandbox. Not only does this cause difficulties down the line
+@@ -98,7 +98,7 @@ static bool SuspendThread(pid_t pid) {
+ 
+ // Resumes a thread by detaching from it.
+ static bool ResumeThread(pid_t pid) {
+-  return sys_ptrace(PTRACE_DETACH, pid, NULL, NULL) >= 0;
++  return false;//sys_ptrace(PTRACE_DETACH, pid, NULL, NULL) >= 0;
+ }
+ 
+ namespace google_breakpad {
+@@ -132,7 +132,7 @@ bool LinuxPtraceDumper::BuildProcPath(char* path, pid_t pid,
+ 
+ bool LinuxPtraceDumper::CopyFromProcess(void* dest, pid_t child,
+                                         const void* src, size_t length) {
+-  unsigned long tmp = 55;
++  /*unsigned long tmp = 55;
+   size_t done = 0;
+   static const size_t word_size = sizeof(tmp);
+   uint8_t* const local = (uint8_t*) dest;
+@@ -145,14 +145,14 @@ bool LinuxPtraceDumper::CopyFromProcess(void* dest, pid_t child,
+     }
+     my_memcpy(local + done, &tmp, l);
+     done += l;
+-  }
++  }*/
+   return true;
+ }
+ 
+ bool LinuxPtraceDumper::ReadRegisterSet(ThreadInfo* info, pid_t tid)
+ {
+-#ifdef PTRACE_GETREGSET
+-  struct iovec io;
++//#ifdef PTRACE_GETREGSET
++  /*struct iovec io;
+   info->GetGeneralPurposeRegisters(&io.iov_base, &io.iov_len);
+   if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_PRSTATUS, (void*)&io) == -1) {
+     return false;
+@@ -161,36 +161,36 @@ bool LinuxPtraceDumper::ReadRegisterSet(ThreadInfo* info, pid_t tid)
+   info->GetFloatingPointRegisters(&io.iov_base, &io.iov_len);
+   if (sys_ptrace(PTRACE_GETREGSET, tid, (void*)NT_FPREGSET, (void*)&io) == -1) {
+     return false;
+-  }
+-  return true;
+-#else
++  }*/
++//  return true;
++//#else
+   return false;
+-#endif
++//#endif
+ }
+ 
+ bool LinuxPtraceDumper::ReadRegisters(ThreadInfo* info, pid_t tid) {
+-#ifdef PTRACE_GETREGS
+-  void* gp_addr;
+-  info->GetGeneralPurposeRegisters(&gp_addr, NULL);
+-  if (sys_ptrace(PTRACE_GETREGS, tid, NULL, gp_addr) == -1) {
+-    return false;
+-  }
+-
+-#if !(defined(__ANDROID__) && defined(__ARM_EABI__))
++//#ifdef PTRACE_GETREGS
++//  void* gp_addr;
++//  info->GetGeneralPurposeRegisters(&gp_addr, NULL);
++//  if (sys_ptrace(PTRACE_GETREGS, tid, NULL, gp_addr) == -1) {
++//    return false;
++//  }
++//
++//#if !(defined(__ANDROID__) && defined(__ARM_EABI__))
+   // When running an arm build on an arm64 device, attempting to get the
+   // floating point registers fails. On Android, the floating point registers
+   // aren't written to the cpu context anyway, so just don't get them here.
+   // See http://crbug.com/508324
+-  void* fp_addr;
+-  info->GetFloatingPointRegisters(&fp_addr, NULL);
+-  if (sys_ptrace(PTRACE_GETFPREGS, tid, NULL, fp_addr) == -1) {
+-    return false;
+-  }
+-#endif  // !(defined(__ANDROID__) && defined(__ARM_EABI__))
+-  return true;
+-#else  // PTRACE_GETREGS
++//  void* fp_addr;
++//  info->GetFloatingPointRegisters(&fp_addr, NULL);
++//  if (sys_ptrace(PTRACE_GETFPREGS, tid, NULL, fp_addr) == -1) {
++//    return false;
++//  }
++//#endif  // !(defined(__ANDROID__) && defined(__ARM_EABI__))
++//  return true;
++//#else  // PTRACE_GETREGS
+   return false;
+-#endif
++//#endif
+ }
+ 
+ // Read thread info from /proc/$pid/status.
+@@ -208,7 +208,7 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
+   if (!BuildProcPath(status_path, tid, "status"))
+     return false;
+ 
+-  const int fd = sys_open(status_path, O_RDONLY, 0);
++  /*const int fd = sys_open(status_path, O_RDONLY, 0);
+   if (fd < 0)
+     return false;
+ 
+@@ -227,7 +227,7 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
+ 
+     line_reader->PopLine(line_len);
+   }
+-  sys_close(fd);
++  sys_close(fd);*/
+ 
+   if (info->ppid == -1 || info->tgid == -1)
+     return false;
+@@ -295,6 +295,7 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
+   my_memcpy(&stack_pointer, &info->regs.ARM_sp, sizeof(info->regs.ARM_sp));
+ #elif defined(__aarch64__)
+   my_memcpy(&stack_pointer, &info->regs.sp, sizeof(info->regs.sp));
++#elif defined(__loongarch__)  
+ #elif defined(__mips__)
+   stack_pointer =
+       reinterpret_cast<uint8_t*>(info->mcontext.gregs[MD_CONTEXT_MIPS_REG_SP]);
+@@ -347,7 +348,7 @@ bool LinuxPtraceDumper::EnumerateThreads() {
+   if (!BuildProcPath(task_path, pid_, "task"))
+     return false;
+ 
+-  const int fd = sys_open(task_path, O_RDONLY | O_DIRECTORY, 0);
++  /*const int fd = sys_open(task_path, O_RDONLY | O_DIRECTORY, 0);
+   if (fd < 0)
+     return false;
+   DirectoryReader* dir_reader = new(allocator_) DirectoryReader(fd);
+@@ -369,7 +370,7 @@ bool LinuxPtraceDumper::EnumerateThreads() {
+     dir_reader->PopEntry();
+   }
+ 
+-  sys_close(fd);
++  sys_close(fd);*/
+   return true;
+ }
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/minidump_writer.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/minidump_writer.cc
+index f8cdf2a1c..cbbd1dcdd 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/minidump_writer.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/minidump_writer.cc
+@@ -136,7 +136,7 @@ class MinidumpWriter {
+       : fd_(minidump_fd),
+         path_(minidump_path),
+         ucontext_(context ? &context->context : NULL),
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+         float_state_(context ? &context->float_state : NULL),
+ #endif
+         dumper_(dumper),
+@@ -469,7 +469,7 @@ class MinidumpWriter {
+           return false;
+         my_memset(cpu.get(), 0, sizeof(RawContextCPU));
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+         UContextReader::FillCPUContext(cpu.get(), ucontext_, float_state_);
+ #else
+         UContextReader::FillCPUContext(cpu.get(), ucontext_);
+ #endif
+@@ -1203,6 +1203,10 @@ class MinidumpWriter {
+       sys_close(fd);
+     }
+ 
++    return true;
++  }
++#elif defined(__loongarch__)
++  bool WriteCPUInformation(MDRawSystemInfo* sys_info) {
+     return true;
+   }
+ #else
+@@ -1210,7 +1214,7 @@ class MinidumpWriter {
+ #endif
+ 
+   bool WriteFile(MDLocationDescriptor* result, const char* filename) {
+-    const int fd = sys_open(filename, O_RDONLY, 0);
++    const int fd = -1;//sys_open(filename, O_RDONLY, 0);
+     if (fd < 0)
+       return false;
+ 
+@@ -1227,7 +1231,7 @@ class MinidumpWriter {
+     buffers->len = 0;
+ 
+     size_t total = 0;
+-    for (Buffers* bufptr = buffers;;) {
++    /*for (Buffers* bufptr = buffers;;) {
+       ssize_t r;
+       do {
+         r = sys_read(fd, &bufptr->data[bufptr->len], kBufSize - bufptr->len);
+@@ -1245,7 +1249,7 @@ class MinidumpWriter {
+         bufptr->len = 0;
+       }
+     }
+-    sys_close(fd);
++    sys_close(fd);*/
+ 
+     if (!total)
+       return false;
+@@ -1337,7 +1337,7 @@ bool WriteMinidumpImpl(const char* minidump_path,
+   const char* path_;  // Path to the file where the minidum should be written.
+ 
+   const ucontext_t* const ucontext_;  // also from the signal handler
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+   const google_breakpad::fpstate_t* const float_state_;  // ditto
+ #endif
+   LinuxDumper* dumper_;
+@@ -1375,7 +1379,7 @@ bool WriteMinidumpImpl(const char* minidump_path,
+     if (blob_size != sizeof(ExceptionHandler::CrashContext))
+       return false;
+     context = reinterpret_cast<const ExceptionHandler::CrashContext*>(blob);
+-    dumper.SetCrashInfoFromSigInfo(context->siginfo);
++    //dumper.SetCrashInfoFromSigInfo(context->siginfo);
+     dumper.set_crash_thread(context->tid);
+   }
+   MinidumpWriter writer(minidump_path, minidump_fd, context, mappings,
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/minidump_file_writer.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/minidump_file_writer.cc
+index a1957f324..a267cc976 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/minidump_file_writer.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/minidump_file_writer.cc
+@@ -104,7 +104,7 @@ MinidumpFileWriter::~MinidumpFileWriter() {
+ bool MinidumpFileWriter::Open(const char *path) {
+   assert(file_ == -1);
+ #if defined(__linux__) && __linux__
+-  file_ = sys_open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
++  //file_ = sys_open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+ #else
+   file_ = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+ #endif
+@@ -135,7 +135,7 @@ bool MinidumpFileWriter::Close() {
+     }
+ #endif
+ #if defined(__linux__) && __linux__
+-    result = (sys_close(file_) == 0);
++    //result = (sys_close(file_) == 0);
+ #else
+     result = (close(file_) == 0);
+ #endif
+@@ -318,11 +318,11 @@ bool MinidumpFileWriter::Copy(MDRVA position, const void *src, ssize_t size) {
+ 
+   // Seek and write the data
+ #if defined(__linux__) && __linux__
+-  if (sys_lseek(file_, position, SEEK_SET) == static_cast<off_t>(position)) {
++  /*if (sys_lseek(file_, position, SEEK_SET) == static_cast<off_t>(position)) {
+     if (sys_write(file_, src, size) == size) {
+       return true;
+     }
+-  }
++  }*/
+ #else
+   if (lseek(file_, position, SEEK_SET) == static_cast<off_t>(position)) {
+     if (write(file_, src, size) == size) {
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/memory_mapped_file.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/memory_mapped_file.cc
+index 4e938269f..0a053d6af 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/memory_mapped_file.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/memory_mapped_file.cc
+@@ -59,12 +59,14 @@ MemoryMappedFile::~MemoryMappedFile() {
+ bool MemoryMappedFile::Map(const char* path, size_t offset) {
+   Unmap();
+ 
++  return false;
++  /*
+   int fd = sys_open(path, O_RDONLY, 0);
+   if (fd == -1) {
+     return false;
+   }
+ 
+-#if defined(__x86_64__) || defined(__aarch64__) || \
++#if defined(__x86_64__) || defined(__aarch64__) || defined(__loongarch__) || \
+    (defined(__mips__) && _MIPS_SIM == _ABI64)
+ 
+   struct kernel_stat st;
+@@ -94,12 +96,12 @@ bool MemoryMappedFile::Map(const char* path, size_t offset) {
+   }
+ 
+   content_.Set(data, file_len - offset);
+-  return true;
++  return true;*/
+ }
+ 
+ void MemoryMappedFile::Unmap() {
+   if (content_.data()) {
+-    sys_munmap(const_cast<uint8_t*>(content_.data()), content_.length());
++    //sys_munmap(const_cast<uint8_t*>(content_.data()), content_.length());
+     content_.Set(NULL, 0);
+   }
+ }
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/safe_readlink.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/safe_readlink.cc
+index 870c28af3..612d9d606 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/safe_readlink.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/linux/safe_readlink.cc
+@@ -42,11 +42,11 @@ bool SafeReadLink(const char* path, char* buffer, size_t buffer_size) {
+   // one byte longer than the expected path length. Also, sys_readlink()
+   // returns the actual path length on success, which does not count the
+   // NULL byte, so |result_size| should be less than |buffer_size|.
+-  ssize_t result_size = sys_readlink(path, buffer, buffer_size);
++  /*ssize_t result_size = sys_readlink(path, buffer, buffer_size);
+   if (result_size >= 0 && static_cast<size_t>(result_size) < buffer_size) {
+     buffer[result_size] = '\0';
+     return true;
+-  }
++  }*/
+   return false;
+ }
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/memory_allocator.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/memory_allocator.h
+index a3159ea46..f64d18814 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/memory_allocator.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/common/memory_allocator.h
+@@ -42,7 +42,7 @@
+ #include <sanitizer/msan_interface.h>
+ #endif
+ 
+-#ifdef __APPLE__
++#if defined(__APPLE__)
+ #define sys_mmap mmap
+ #define sys_munmap munmap
+ #define MAP_ANONYMOUS MAP_ANON
+@@ -117,7 +117,7 @@ class PageAllocator {
+  private:
+   uint8_t *GetNPages(size_t num_pages) {
+     void *a = sys_mmap(NULL, page_size_ * num_pages, PROT_READ | PROT_WRITE,
+-                       MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++                       MAP_PRIVATE | 0x20 /*MAP_ANONYMOUS*/, -1, 0);
+     if (a == MAP_FAILED)
+       return NULL;
+ 
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.h b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.h
+index a3159ea46..f64d18814 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.h
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/handler/exception_handler.h
+@@ -192,7 +192,7 @@
+     siginfo_t siginfo;
+     pid_t tid;  // the crashing thread.
+     ucontext_t context;
+-#if !defined(__ARM_EABI__) && !defined(__mips__)
++#if !defined(__ARM_EABI__) && !defined(__mips__) && !defined(__loongarch__)
+     // #ifdef this out because FP state is not part of user ABI for Linux ARM.
+     // In case of MIPS Linux FP state is already part of ucontext_t so
+     // 'float_state' is not required.
+-- 
+2.20.1
+

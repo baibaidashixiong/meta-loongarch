@@ -1,0 +1,17 @@
+Description: disable dav1d support on mipsel
+ dav1d does not support MIPS, and there is no config directory for it.
+Author: Dmitry Shachnev <mitya57@debian.org>
+Forwarded: no
+Last-Update: 2020-03-17
+
+--- a/src/3rdparty/chromium/media/media_options.gni
++++ b/src/3rdparty/chromium/media/media_options.gni
+@@ -93,7 +93,7 @@ declare_args() {
+   # are combined and we could override more logging than expected.
+   enable_logging_override = !use_jumbo_build && is_chromecast
+ 
+-  enable_dav1d_decoder = !is_android && !is_ios
++  enable_dav1d_decoder = !is_android && !is_ios && target_cpu != "mips64el" && target_cpu != "mipsel"
+ 
+   # Enable browser managed persistent metadata storage for EME persistent
+   # session and persistent usage record session.

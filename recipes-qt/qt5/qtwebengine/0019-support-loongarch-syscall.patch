@@ -1,0 +1,39 @@
+From d9d2c1ef25068eca85de73e4af575b371c1a9347 Mon Sep 17 00:00:00 2001
+From: Qizheng Zhu <zhuqizheng@loongson.cn>
+Date: Thu, 1 Jun 2023 07:29:08 +0000
+Subject: [PATCH] support loongarch syscall
+
+---
+ .../chromium/third_party/lss/linux_syscall_support.h     | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h b/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h
+index 4ef451a..e58ce71 100644
+--- a/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h
++++ b/src/3rdparty/chromium/third_party/lss/linux_syscall_support.h
+@@ -1116,6 +1116,9 @@ struct kernel_statfs {
+ #ifndef __NR_newfstatat
+ #define __NR_newfstatat          79
+ #endif
++#ifndef __NR_fstat 
++#define __NR_fstat 80
++#endif
+ #ifndef __NR_set_tid_address
+ #define __NR_set_tid_address     96
+ #endif
+@@ -1141,6 +1144,12 @@ struct kernel_statfs {
+ #define __NR_setresgid          149
+ #define __NR_getresgid          150
+ #endif
++#ifndef __NR_getrlimit
++#define __NR_getrlimit 163
++#endif
++#ifndef __NR_setrlimit
++#define __NR_setrlimit 164
++#endif
+ #ifndef __NR_gettid
+ #define __NR_gettid             178
+ #endif
+-- 
+2.30.2
+

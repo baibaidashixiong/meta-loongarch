@@ -1,0 +1,45 @@
+From 25c0bc08ea4d22fda5e6796bc6dfab16ac02eace Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Wed, 13 Jan 2021 07:59:57 +0000
+Subject: [PATCH 09/13] port pdfium for loongarch64
+
+---
+ .../allocator/partition_allocator/page_allocator_constants.h  | 4 ++--
+ .../allocator/partition_allocator/partition_alloc_constants.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/page_allocator_constants.h
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/page_allocator_constants.h
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/page_allocator_constants.h
+@@ -13,7 +13,7 @@ namespace pdfium {
+ namespace base {
+ #if defined(OS_WIN) || defined(ARCH_CPU_PPC64)
+ static constexpr size_t kPageAllocationGranularityShift = 16;  // 64KB
+-#elif defined(_MIPS_ARCH_LOONGSON)
++#elif defined(_MIPS_ARCH_LOONGSON) || defined(__loongarch__)
+ static constexpr size_t kPageAllocationGranularityShift = 14;  // 16KB
+ #else
+ static constexpr size_t kPageAllocationGranularityShift = 12;  // 4KB
+@@ -25,7 +25,7 @@ static constexpr size_t kPageAllocationG
+ static constexpr size_t kPageAllocationGranularityBaseMask =
+     ~kPageAllocationGranularityOffsetMask;
+ 
+-#if defined(_MIPS_ARCH_LOONGSON)
++#if defined(_MIPS_ARCH_LOONGSON) || defined(__loongarch__)
+ static constexpr size_t kSystemPageSize = 16384;
+ #elif defined(ARCH_CPU_PPC64)
+ // Modern ppc64 systems support 4KB and 64KB page sizes.
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/partition_alloc_constants.h
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/partition_alloc_constants.h
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/pdfium/third_party/base/allocator/partition_allocator/partition_alloc_constants.h
+@@ -35,7 +35,7 @@ static const size_t kBucketShift = (kAll
+ // other constant values, we pack _all_ `PartitionRootGeneric::Alloc` sizes
+ // perfectly up against the end of a system page.
+ 
+-#if defined(_MIPS_ARCH_LOONGSON)
++#if defined(_MIPS_ARCH_LOONGSON) || defined(__loongarch__)
+ static const size_t kPartitionPageShift = 16;  // 64 KiB
+ #elif defined(ARCH_CPU_PPC64)
+ static const size_t kPartitionPageShift = 18;  // 256 KiB

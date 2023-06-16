@@ -1,0 +1,41 @@
+diff --git a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
+index 88de7ae..66b7f57 100644
+--- a/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
++++ b/src/3rdparty/chromium/third_party/breakpad/breakpad/src/client/linux/minidump_writer/linux_ptrace_dumper.cc
+@@ -267,7 +267,7 @@ bool LinuxPtraceDumper::GetThreadInfoByIndex(size_t index, ThreadInfo* info) {
+   }
+ #endif
+ 
+-#if defined(__mips__)
++#if defined(__mips__) && !defined(__mips64)
+   sys_ptrace(PTRACE_PEEKUSER, tid,
+              reinterpret_cast<void*>(PC), &info->mcontext.pc);
+   sys_ptrace(PTRACE_PEEKUSER, tid,
+diff --git a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
+index 1c896b5..d2fc2cb 100644
+--- a/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
++++ b/src/3rdparty/chromium/sandbox/linux/bpf_dsl/linux_syscall_ranges.h
+@@ -37,7 +37,11 @@
+ 
+ #elif defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS)
+ 
++#if defined(_MIPS_ARCH_LOONGSON3A)
++#include <asm/unistd.h>
++#else
+ #include <asm/unistd_nr_o32.h>  // for __NR_O32_Linux and __NR_O32_Linux_syscalls
++#endif
+ #define MIN_SYSCALL         __NR_O32_Linux
+ #define MAX_PUBLIC_SYSCALL  (MIN_SYSCALL + __NR_O32_Linux_syscalls)
+ #define MAX_SYSCALL         MAX_PUBLIC_SYSCALL
+@@ -51,7 +55,11 @@
+ 
+ #elif (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_64_BITS))
+ 
++#if defined(_MIPS_ARCH_LOONGSON3A)
++#include <asm/unistd.h>
++#else
+ #include <asm/unistd_nr_n64.h>  // for __NR_64_Linux and __NR_64_Linux_syscalls
++#endif
+ #define MIN_SYSCALL         __NR_64_Linux
+ #define MAX_PUBLIC_SYSCALL  (MIN_SYSCALL + __NR_64_Linux_syscalls)
+ #define MAX_SYSCALL         MAX_PUBLIC_SYSCALL

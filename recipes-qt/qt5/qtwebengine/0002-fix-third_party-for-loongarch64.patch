@@ -1,0 +1,37 @@
+From 9e1c5058e32b64a74011b0863e02cdbde63a602f Mon Sep 17 00:00:00 2001
+From: CaoHuixiong <caohuixiong@loongson.cn>
+Date: Tue, 12 Jan 2021 09:25:20 +0000
+Subject: [PATCH 02/13] fix third_party for loongarch64
+
+---
+ src/3rdparty/chromium/third_party/angle/gni/angle.gni          | 2 +-
+ .../chromium/third_party/boringssl/src/include/openssl/base.h  | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/angle/gni/angle.gni
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/angle/gni/angle.gni
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/angle/gni/angle.gni
+@@ -54,7 +54,7 @@ angle_data_dir = "angledata"
+ declare_args() {
+   if (current_cpu == "arm64" || current_cpu == "x64" ||
+       current_cpu == "mips64el" || current_cpu == "s390x" ||
+-      current_cpu == "ppc64") {
++      current_cpu == "ppc64" || current_cpu == "la64") {
+     angle_64bit_current_cpu = true
+   } else if (current_cpu == "arm" || current_cpu == "x86" ||
+              current_cpu == "mipsel" || current_cpu == "s390" ||
+Index: qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/boringssl/src/include/openssl/base.h
+===================================================================
+--- qtwebengine-everywhere-src-5.15.2.orig/src/3rdparty/chromium/third_party/boringssl/src/include/openssl/base.h
++++ qtwebengine-everywhere-src-5.15.2/src/3rdparty/chromium/third_party/boringssl/src/include/openssl/base.h
+@@ -105,6 +105,9 @@ extern "C" {
+ #elif defined(__mips__) && defined(__LP64__)
+ #define OPENSSL_64_BIT
+ #define OPENSSL_MIPS64
++#elif defined(__loongarch__)
++#define OPENSSL_64_BIT
++#define OPENSSL_LA64
+ #elif defined(__pnacl__)
+ #define OPENSSL_32_BIT
+ #define OPENSSL_PNACL
