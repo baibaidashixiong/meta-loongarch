@@ -20,7 +20,7 @@ git clone https://github.com/loongarch64/meta-loongarch.git
 - `downloads` 目录用于保存下载的软件源代码，可在多次构建之间共享。
 ### 基于poky构建qtwebengine
 ```
-git clone https://git.yoctoproject.org/poky.git
+git clone --depth=1 https://git.yoctoproject.org/poky.git
 cd poky
 git clone https://github.com/loongarch64/meta-loongarch.git
 git clone https://github.com/meta-qt5/meta-qt5.git
@@ -32,6 +32,7 @@ bitbake-layers add-layer ../meta-qt5
 bitbake-layers add-layer ../meta-openembedded/meta-oe/
 sed -i 's/kirkstone/mickledore/g' ../meta-python2/conf/layer.conf
 bitbake-layers add-layer ../meta-python2/
+cp ../meta-loongarch/conf/local.conf.sample conf/local.conf
 bitbake qtwebengine
 ```
 
